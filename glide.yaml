@@ -1,0 +1,3 @@
+package: github.com/yl2chen/iptable
+import:
+- package: github.com/stretchr/testify
