@@ -3,6 +3,7 @@ package cidranger
 import (
 	"net"
 
+	"github.com/yl2chen/cidranger/ranger/brute"
 	"github.com/yl2chen/cidranger/ranger/trie"
 )
 
@@ -17,4 +18,8 @@ type Ranger interface {
 // NewLPCTrieRanger returns an instance of LPC trie ranger.
 func NewLPCTrieRanger() Ranger {
 	return trie.NewPrefixTree()
+}
+
+func NewBruteRanger() Ranger {
+	return brute.NewRanger()
 }
