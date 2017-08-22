@@ -151,11 +151,7 @@ func (p *PrefixTrie) Contains(ip net.IP) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	networks, err := p.containingNetworks(ipUint32, false)
-	if err != nil {
-		return false, err
-	}
-	return len(networks) > 0, nil
+	return p.contains(ipUint32)
 }
 
 // ContainingNetworks returns the list of networks given ip is a part of in
@@ -165,7 +161,7 @@ func (p *PrefixTrie) ContainingNetworks(ip net.IP) ([]net.IPNet, error) {
 	if err != nil {
 		return nil, err
 	}
-	return p.containingNetworks(ipUint32, true)
+	return p.containingNetworks(ipUint32)
 }
 
 // String returns string representation of trie, mainly for visualization and
@@ -184,17 +180,31 @@ func (p *PrefixTrie) String() string {
 		p.targetBitPosition(), p.hasEntry, strings.Join(children, ""))
 }
 
-func (p *PrefixTrie) containingNetworks(ip uint32, greedy bool) ([]net.IPNet, error) {
+func (p *PrefixTrie) contains(ip uint32) (bool, error) {
+	if !p.containsIP(ip) {
+		return false, nil
+	}
+	if p.hasEntry {
+		return true, nil
+	}
+	bits, err := p.targetBitsFromIP(ip)
+	if err != nil {
+		return false, err
+	}
+	child := p.children[bits]
+	if child != nil {
+		return child.contains(ip)
+	}
+	return false, nil
+}
+
+func (p *PrefixTrie) containingNetworks(ip uint32) ([]net.IPNet, error) {
 	results := []net.IPNet{}
-	if !p.contains(ip) {
+	if !p.containsIP(ip) {
 		return results, nil
 	}
 	if p.hasEntry {
-		results = append(results, *p.network)
-		if !greedy {
-			// If solution is not greedy, return first matched network.
-			return results, nil
-		}
+		results = []net.IPNet{*p.network}
 	}
 	bits, err := p.targetBitsFromIP(ip)
 	if err != nil {
@@ -202,11 +212,13 @@ func (p *PrefixTrie) containingNetworks(ip uint32, greedy bool) ([]net.IPNet, er
 	}
 	child := p.children[bits]
 	if child != nil {
-		ranges, err := child.containingNetworks(ip, greedy)
+		ranges, err := child.containingNetworks(ip)
 		if err != nil {
 			return nil, err
 		}
-		results = append(results, ranges...)
+		if len(ranges) > 0 {
+			results = append(results, ranges...)
+		}
 	}
 	return results, nil
 }
@@ -247,7 +259,7 @@ func (p *PrefixTrie) insert(network *net.IPNet, networkNumber uint32) error {
 	return child.insert(network, networkNumber)
 }
 
-func (p *PrefixTrie) contains(ip uint32) bool {
+func (p *PrefixTrie) containsIP(ip uint32) bool {
 	return ip&p.networkMask == p.networkNumber
 }
 

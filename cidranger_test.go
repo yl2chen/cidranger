@@ -64,12 +64,47 @@ func TestContainingNetworks(t *testing.T) {
 	}
 }
 
-func BenchmarkLPCTrieUsingAWSRanges(b *testing.B) {
-	benchmarkContainsUsingAWSRanges(b, NewLPCTrieRanger())
+/*
+ *********************************
+ Benchmarking
+ *********************************
+*/
+
+func BenchmarkIPv4ToUint32(b *testing.B) {
+	nn := net.ParseIP("52.95.110.1")
+	for n := 0; n < b.N; n++ {
+		ip.IPv4ToUint32(nn)
+	}
 }
 
-func BenchmarkBruteRangerUsingAWSRanges(b *testing.B) {
-	benchmarkContainsUsingAWSRanges(b, NewBruteRanger())
+func BenchmarkUint32ToIPv4(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		ip.Uint32ToIPv4(878669313)
+	}
+}
+
+func BenchmarkExtractBits(b *testing.B) {
+	nn := net.ParseIP("52.95.110.1")
+	ipUint32, _ := ip.IPv4ToUint32(nn)
+	for n := 0; n < b.N; n++ {
+		ip.IPv4BitsAsUint(ipUint32, 6, 1)
+	}
+}
+
+func BenchmarkLPCTrieHitUsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("52.95.110.1"), NewLPCTrieRanger())
+}
+
+func BenchmarkBruteRangerHitUsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("52.95.110.1"), NewBruteRanger())
+}
+
+func BenchmarkLPCTrieMissUsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("123.123.123.123"), NewLPCTrieRanger())
+}
+
+func BenchmarkBruteRangerMissUsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("123.123.123.123"), NewBruteRanger())
 }
 
 func configureRangerWithAWSRanges(tb testing.TB, ranger Ranger) {
@@ -81,11 +116,10 @@ func configureRangerWithAWSRanges(tb testing.TB, ranger Ranger) {
 	}
 }
 
-func benchmarkContainsUsingAWSRanges(tb testing.TB, ranger Ranger) {
+func benchmarkContainsUsingAWSRanges(tb testing.TB, nn net.IP, ranger Ranger) {
 	configureRangerWithAWSRanges(tb, ranger)
-	ip := net.ParseIP("52.95.110.1")
 	for n := 0; n < tb.(*testing.B).N; n++ {
-		ranger.Contains(ip)
+		ranger.Contains(nn)
 	}
 }
 
