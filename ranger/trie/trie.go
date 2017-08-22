@@ -1,3 +1,28 @@
+/*
+Package trie provides an LPC (Level Path Compressed) trie implementation of the
+ranger interface inspired by this blog post:
+https://vincent.bernat.im/en/blog/2017-ipv4-route-lookup-linux
+
+CIDR blocks are stored using a prefix tree structure where each node has its
+parent as prefix, and the path from the root node represents current CIDR block.
+
+For IPv4, the trie structure guarantees max depth of 32 as IPv4 addresses are
+32 bits long and each bit represents a prefix tree starting at that bit. This
+property also gaurantees constant lookup time in Big-O notation.
+
+Path compression compresses a string of node with only 1 child into a single
+node, decrease the amount of lookups necessary during containment tests.
+
+Level compression dictates the amount of direct children of a node by allowing
+it to handle multiple bits in the path.  The heuristic (based on children
+population) to decide when the compression and decompression happens is outlined
+in the prior linked blog, and will be experimented with in more depth in this
+project in the future.
+
+TODO: Implement level-compressed component of the LPC trie.
+TODO: Add support for ipV6.
+
+*/
 package trie
 
 import (

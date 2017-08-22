@@ -1,3 +1,6 @@
+/*
+Package cidr provides utility functions for working with CIDR blocks (net.IPNet).
+*/
 package cidr
 
 import (

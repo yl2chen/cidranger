@@ -1,3 +1,6 @@
+/*
+Package ip provides utility functions for working with IPs (net.IP).
+*/
 package ip
 
 import (

@@ -1,3 +1,15 @@
+/*
+Package brute provides the brute force implementation of Ranger.  Insertion and
+deletion of networks is performed on an internal storage in the form of
+map[string]net.IPNet (constant time operations).  However, inclusion tests are
+always performed linearly at no guaranteed traversal order of recorded networks,
+so one can assume a worst case performance of O(N).  The performance can be
+boosted by changing usage of net.IPNet.Contains() to using masked bits
+equality checking, but the main purpose of this implementation is for testing
+because the correctness of this implementation can be easily guaranteed, and
+used as the ground truth when running a wider range of 'random' tests on other
+more sophisticated implementations.
+*/
 package brute
 
 import "net"
