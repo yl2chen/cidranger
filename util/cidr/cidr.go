@@ -17,11 +17,11 @@ var ErrNoGreatestCommonBit = fmt.Errorf("No greatest common bit")
 // GreatestCommonBitPosition returns the greatest common bit position of
 // given cidr blocks.
 func GreatestCommonBitPosition(network1 *net.IPNet, network2 *net.IPNet) (uint8, error) {
-	ip1, err := ip.IPv4ToBigEndianUint32(network1.IP)
+	ip1, err := ip.IPv4ToUint32(network1.IP)
 	if err != nil {
 		return 0, err
 	}
-	ip2, err := ip.IPv4ToBigEndianUint32(network2.IP)
+	ip2, err := ip.IPv4ToUint32(network2.IP)
 	if err != nil {
 		return 0, err
 	}

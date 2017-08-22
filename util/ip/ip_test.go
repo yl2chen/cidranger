@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIPv4ToLittleEndianUint32(t *testing.T) {
+func TestIPv4ToUint32(t *testing.T) {
 	cases := []struct {
 		ip          string
 		ipUint32    uint32
@@ -20,9 +20,27 @@ func TestIPv4ToLittleEndianUint32(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.ip, func(t *testing.T) {
-			ret, err := IPv4ToBigEndianUint32(net.ParseIP(c.ip))
+			ret, err := IPv4ToUint32(net.ParseIP(c.ip))
 			assert.Equal(t, c.expectedErr, err)
 			assert.Equal(t, c.ipUint32, ret)
+		})
+	}
+}
+
+func TestUint32ToIPv4(t *testing.T) {
+	cases := []struct {
+		ip       uint32
+		expected net.IP
+		name     string
+	}{
+		{2147483648, net.ParseIP("128.0.0.0").To4(), "128.0.0.0"},
+		{2147483649, net.ParseIP("128.0.0.1").To4(), "128.0.0.1"},
+		{4294967295, net.ParseIP("255.255.255.255").To4(), "255.255.255.255"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, Uint32ToIPv4(tc.ip))
 		})
 	}
 }

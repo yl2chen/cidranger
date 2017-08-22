@@ -65,7 +65,7 @@ func newPathPrefixTrie(network *net.IPNet, numBitsSkipped uint8) (*PrefixTrie, e
 	path := NewPrefixTree()
 	path.numBitsSkipped = numBitsSkipped
 	path.network = cidr.MaskNetwork(network, int(numBitsSkipped))
-	networkNumber, err := iputil.IPv4ToBigEndianUint32(path.network.IP)
+	networkNumber, err := iputil.IPv4ToUint32(path.network.IP)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ func newEntryTrie(network *net.IPNet) (*PrefixTrie, error) {
 
 // Insert inserts the given cidr range into prefix trie.
 func (p *PrefixTrie) Insert(network net.IPNet) error {
-	networkNumber, err := iputil.IPv4ToBigEndianUint32(network.IP)
+	networkNumber, err := iputil.IPv4ToUint32(network.IP)
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func (p *PrefixTrie) Insert(network net.IPNet) error {
 
 // Remove removes network from trie.
 func (p *PrefixTrie) Remove(network net.IPNet) (*net.IPNet, error) {
-	networkNumber, err := iputil.IPv4ToBigEndianUint32(network.IP)
+	networkNumber, err := iputil.IPv4ToUint32(network.IP)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (p *PrefixTrie) childrenCount() int {
 // Contains returns boolean indicating whether given ip is contained in any
 // of the inserted networks.
 func (p *PrefixTrie) Contains(ip net.IP) (bool, error) {
-	ipUint32, err := iputil.IPv4ToBigEndianUint32(ip)
+	ipUint32, err := iputil.IPv4ToUint32(ip)
 	if err != nil {
 		return false, err
 	}
@@ -161,7 +161,7 @@ func (p *PrefixTrie) Contains(ip net.IP) (bool, error) {
 // ContainingNetworks returns the list of networks given ip is a part of in
 // ascending prefix order.
 func (p *PrefixTrie) ContainingNetworks(ip net.IP) ([]net.IPNet, error) {
-	ipUint32, err := iputil.IPv4ToBigEndianUint32(ip)
+	ipUint32, err := iputil.IPv4ToUint32(ip)
 	if err != nil {
 		return nil, err
 	}

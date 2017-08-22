@@ -17,13 +17,20 @@ var ErrBitsNotValid = fmt.Errorf("bits requested not valid")
 
 const ipv4BitLength = 32
 
-// IPv4ToBigEndianUint32 converts IPv4 to uint32.
-func IPv4ToBigEndianUint32(ip net.IP) (uint32, error) {
+// IPv4ToUint32 converts ipV4 to uint32.
+func IPv4ToUint32(ip net.IP) (uint32, error) {
 	ip = ip.To4()
 	if ip == nil {
 		return 0, ErrNotIPv4Error
 	}
 	return binary.BigEndian.Uint32(ip), nil
+}
+
+// Uint32ToIPv4 converts uint32 to ipV4 net.IP.
+func Uint32ToIPv4(nn uint32) net.IP {
+	ip := make(net.IP, 4)
+	binary.BigEndian.PutUint32(ip, nn)
+	return ip
 }
 
 // IPv4BitsAsUint returns uint32 representing bits at position of length
