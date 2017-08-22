@@ -2,7 +2,7 @@
 Fast IP to belonging CIDR block(s) lookup using trie implementation, e.g. 192.168.0.1 is contained in 192.168.0.0/24
 
 [![GoDoc Reference](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://godoc.org/github.com/yl2chen/cidranger)
-[![Build Status](https://travis-ci.org/yl2chen/cidranger.svg?branch=master)](https://travis-ci.org/yl2chen/cidranger)
+[![Build Status](https://img.shields.io/travis/yl2chen/cidranger.svg?branch=master&style=flat-square)](https://travis-ci.org/yl2chen/cidranger)
 
 ### Usage
 Configure imports.
