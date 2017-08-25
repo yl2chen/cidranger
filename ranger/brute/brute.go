@@ -12,34 +12,48 @@ more sophisticated implementations.
 */
 package brute
 
-import "net"
+import (
+	"net"
+
+	"github.com/yl2chen/cidranger/ranger"
+)
 
 // Ranger is a Ranger that uses brute force operations.
 type Ranger struct {
-	networks map[string]net.IPNet
+	ipV4Networks map[string]net.IPNet
+	ipV6Networks map[string]net.IPNet
 }
 
 // NewRanger returns a new Ranger.
 func NewRanger() *Ranger {
 	return &Ranger{
-		networks: make(map[string]net.IPNet),
+		ipV4Networks: make(map[string]net.IPNet),
+		ipV6Networks: make(map[string]net.IPNet),
 	}
 }
 
 // Insert inserts a network into ranger.
 func (b *Ranger) Insert(network net.IPNet) error {
 	key := network.String()
-	if _, found := b.networks[key]; !found {
-		b.networks[key] = network
+	if _, found := b.ipV4Networks[key]; !found {
+		networks, err := b.getNetworksByVersion(network.IP)
+		if err != nil {
+			return err
+		}
+		networks[key] = network
 	}
 	return nil
 }
 
 // Remove removes a network from ranger.
 func (b *Ranger) Remove(network net.IPNet) (*net.IPNet, error) {
+	networks, err := b.getNetworksByVersion(network.IP)
+	if err != nil {
+		return nil, err
+	}
 	key := network.String()
-	if networkToDelete, found := b.networks[key]; found {
-		delete(b.networks, key)
+	if networkToDelete, found := networks[key]; found {
+		delete(networks, key)
 		return &networkToDelete, nil
 	}
 	return nil, nil
@@ -48,7 +62,11 @@ func (b *Ranger) Remove(network net.IPNet) (*net.IPNet, error) {
 // Contains returns bool indicating whether given ip is contained by any
 // network in ranger.
 func (b *Ranger) Contains(ip net.IP) (bool, error) {
-	for _, network := range b.networks {
+	networks, err := b.getNetworksByVersion(ip)
+	if err != nil {
+		return false, err
+	}
+	for _, network := range networks {
 		if network.Contains(ip) {
 			return true, nil
 		}
@@ -58,11 +76,25 @@ func (b *Ranger) Contains(ip net.IP) (bool, error) {
 
 // ContainingNetworks returns all networks given ip is a part of.
 func (b *Ranger) ContainingNetworks(ip net.IP) ([]net.IPNet, error) {
-	networks := []net.IPNet{}
-	for _, network := range b.networks {
+	networks, err := b.getNetworksByVersion(ip)
+	if err != nil {
+		return nil, err
+	}
+	results := []net.IPNet{}
+	for _, network := range networks {
 		if network.Contains(ip) {
-			networks = append(networks, network)
+			results = append(results, network)
 		}
 	}
-	return networks, nil
+	return results, nil
+}
+
+func (b *Ranger) getNetworksByVersion(ip net.IP) (map[string]net.IPNet, error) {
+	if ip.To4() != nil {
+		return b.ipV4Networks, nil
+	}
+	if ip.To16() != nil {
+		return b.ipV6Networks, nil
+	}
+	return nil, ranger.ErrInvalidNetworkInput
 }
