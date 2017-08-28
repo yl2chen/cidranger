@@ -43,10 +43,10 @@ containingNetworks, err = ranger.ContainingNetworks(net.ParseIP("128.168.1.0"))
 
 ### Benchmark results comparing hit/miss for LPC trie vs brute force implementation, using AWS published ip ranges.
 ```
-BenchmarkLPCTrieHitUsingAWSRanges-4        	   5000000	      256.00 ns/op
-BenchmarkBruteRangerHitUsingAWSRanges-4    	    100000	    14739.00 ns/op
-BenchmarkLPCTrieMissUsingAWSRanges-4       	  20000000	       57.50 ns/op
-BenchmarkBruteRangerMissUsingAWSRanges-4   	     50000	    25038.00 ns/op
+BenchmarkLPCTrieHitUsingAWSRanges-4        	 5000000	       314.0 ns/op
+BenchmarkBruteRangerHitUsingAWSRanges-4    	  100000	     14005.0 ns/op
+BenchmarkLPCTrieMissUsingAWSRanges-4       	20000000	        82.1 ns/op
+BenchmarkBruteRangerMissUsingAWSRanges-4   	   50000	     24422.0 ns/op
 ```
 
 ### TODO
