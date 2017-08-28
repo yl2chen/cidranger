@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/yl2chen/cidranger/util/ip"
+	rnet "github.com/yl2chen/cidranger/net"
 )
 
 type AWSRanges struct {
@@ -21,73 +21,52 @@ type Prefix struct {
 	Service  string `json:"service"`
 }
 
-func TestContains(t *testing.T) {
+/*
+ ******************************************************************
+ Test Contains/ContainingNetworks against basic brute force ranger.
+ ******************************************************************
+*/
+
+func TestContainsAgainstBase(t *testing.T) {
 	rangers := []Ranger{NewLPCTrieRanger()}
-	groundRanger := NewBruteRanger()
+	baseRanger := NewBruteRanger()
 	for _, ranger := range rangers {
 		configureRangerWithAWSRanges(t, ranger)
 	}
-	configureRangerWithAWSRanges(t, groundRanger)
+	configureRangerWithAWSRanges(t, baseRanger)
 
 	for i := 0; i < 100000; i++ {
-		nn := ip.Uint32ToIPv4(rand.Uint32())
-		expected, err := groundRanger.Contains(nn)
+		nn := rnet.NetworkNumber{rand.Uint32()}
+		expected, err := baseRanger.Contains(nn.ToIP())
 		for _, ranger := range rangers {
 			assert.NoError(t, err)
-			actual, err := ranger.Contains(nn)
+			actual, err := ranger.Contains(nn.ToIP())
 			assert.NoError(t, err)
 			assert.Equal(t, expected, actual)
 		}
 	}
 }
 
-func TestContainingNetworks(t *testing.T) {
+func TestContainingNetworksAgainstBase(t *testing.T) {
 	rangers := []Ranger{NewLPCTrieRanger()}
-	groundRanger := NewBruteRanger()
+	baseRanger := NewBruteRanger()
 	for _, ranger := range rangers {
 		configureRangerWithAWSRanges(t, ranger)
 	}
-	configureRangerWithAWSRanges(t, groundRanger)
+	configureRangerWithAWSRanges(t, baseRanger)
 
 	for i := 0; i < 100000; i++ {
-		nn := ip.Uint32ToIPv4(rand.Uint32())
-		expected, err := groundRanger.ContainingNetworks(nn)
+		nn := rnet.NetworkNumber{rand.Uint32()}
+		expected, err := baseRanger.ContainingNetworks(nn.ToIP())
 		for _, ranger := range rangers {
 			assert.NoError(t, err)
-			actual, err := ranger.ContainingNetworks(nn)
+			actual, err := ranger.ContainingNetworks(nn.ToIP())
 			assert.NoError(t, err)
 			assert.Equal(t, len(expected), len(actual))
 			for _, network := range actual {
 				assert.Contains(t, expected, network)
 			}
 		}
-	}
-}
-
-/*
- *********************************
- Benchmarking
- *********************************
-*/
-
-func BenchmarkIPv4ToUint32(b *testing.B) {
-	nn := net.ParseIP("52.95.110.1")
-	for n := 0; n < b.N; n++ {
-		ip.IPv4ToUint32(nn)
-	}
-}
-
-func BenchmarkUint32ToIPv4(b *testing.B) {
-	for n := 0; n < b.N; n++ {
-		ip.Uint32ToIPv4(878669313)
-	}
-}
-
-func BenchmarkExtractBits(b *testing.B) {
-	nn := net.ParseIP("52.95.110.1")
-	ipUint32, _ := ip.IPv4ToUint32(nn)
-	for n := 0; n < b.N; n++ {
-		ip.IPv4BitsAsUint(ipUint32, 6, 1)
 	}
 }
 

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/yl2chen/cidranger/util/ip"
+	rnet "github.com/yl2chen/cidranger/net"
 )
 
 func TestInsert(t *testing.T) {
@@ -171,17 +171,18 @@ func TestContains(t *testing.T) {
 			for _, expectedIPRange := range tc.expectedIPs {
 				var contains bool
 				var err error
-				for i := expectedIPRange.start; !expectedIPRange.end.Equal(i); i = ip.NextIP(i) {
-					contains, err = trie.Contains(i)
+				start := expectedIPRange.start
+				for ; !expectedIPRange.end.Equal(start); start = rnet.NextIP(start) {
+					contains, err = trie.Contains(start)
 					assert.NoError(t, err)
 					assert.True(t, contains)
 				}
 
 				// Check out of bounds ips on both ends
-				contains, err = trie.Contains(ip.PreviousIP(expectedIPRange.start))
+				contains, err = trie.Contains(rnet.PreviousIP(expectedIPRange.start))
 				assert.NoError(t, err)
 				assert.False(t, contains)
-				contains, err = trie.Contains(ip.NextIP(expectedIPRange.end))
+				contains, err = trie.Contains(rnet.NextIP(expectedIPRange.end))
 				assert.NoError(t, err)
 				assert.False(t, contains)
 			}

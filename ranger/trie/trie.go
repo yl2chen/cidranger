@@ -27,12 +27,11 @@ package trie
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"strings"
 
-	"github.com/yl2chen/cidranger/util/cidr"
-	iputil "github.com/yl2chen/cidranger/util/ip"
+	rnet "github.com/yl2chen/cidranger/net"
+	"github.com/yl2chen/cidranger/ranger"
 )
 
 // PrefixTrie is a level-path-compressed (LPC) trie for cidr ranges.
@@ -41,42 +40,35 @@ type PrefixTrie struct {
 	parent   *PrefixTrie
 	children []*PrefixTrie
 
-	numBitsSkipped uint8
-	numBitsHandled uint8
+	numBitsSkipped uint
+	numBitsHandled uint
 
-	network       *net.IPNet
-	networkNumber uint32
-	networkMask   uint32
-	hasEntry      bool
+	network  rnet.Network
+	hasEntry bool
 }
 
 // NewPrefixTree creates a new PrefixTrie.
 func NewPrefixTree() *PrefixTrie {
-	_, rootCidr, _ := net.ParseCIDR("0.0.0.0/0")
+	_, rootNet, _ := net.ParseCIDR("0.0.0.0/0")
+
 	return &PrefixTrie{
 		children:       make([]*PrefixTrie, 2, 2),
 		numBitsSkipped: 0,
 		numBitsHandled: 1,
-		network:        rootCidr,
+		network:        rnet.NewNetwork(*rootNet),
 	}
 }
 
-func newPathPrefixTrie(network *net.IPNet, numBitsSkipped uint8) (*PrefixTrie, error) {
+func newPathPrefixTrie(network rnet.Network, numBitsSkipped uint) (*PrefixTrie, error) {
 	path := NewPrefixTree()
 	path.numBitsSkipped = numBitsSkipped
-	path.network = cidr.MaskNetwork(network, int(numBitsSkipped))
-	networkNumber, err := iputil.IPv4ToUint32(path.network.IP)
-	if err != nil {
-		return nil, err
-	}
-	path.networkNumber = networkNumber
-	path.networkMask = math.MaxUint32 << uint32(32-numBitsSkipped)
+	path.network = network.Masked(int(numBitsSkipped))
 	return path, nil
 }
 
-func newEntryTrie(network *net.IPNet) (*PrefixTrie, error) {
-	ones, _ := network.Mask.Size()
-	leaf, err := newPathPrefixTrie(network, uint8(ones))
+func newEntryTrie(network rnet.Network) (*PrefixTrie, error) {
+	ones, _ := network.IPNet.Mask.Size()
+	leaf, err := newPathPrefixTrie(network, uint(ones))
 	if err != nil {
 		return nil, err
 	}
@@ -86,52 +78,12 @@ func newEntryTrie(network *net.IPNet) (*PrefixTrie, error) {
 
 // Insert inserts the given cidr range into prefix trie.
 func (p *PrefixTrie) Insert(network net.IPNet) error {
-	networkNumber, err := iputil.IPv4ToUint32(network.IP)
-	if err != nil {
-		return err
-	}
-	return p.insert(&network, networkNumber)
+	return p.insert(rnet.NewNetwork(network))
 }
 
 // Remove removes network from trie.
 func (p *PrefixTrie) Remove(network net.IPNet) (*net.IPNet, error) {
-	networkNumber, err := iputil.IPv4ToUint32(network.IP)
-	if err != nil {
-		return nil, err
-	}
-	return p.remove(&network, networkNumber)
-}
-
-func (p *PrefixTrie) remove(network *net.IPNet, networkNumber uint32) (*net.IPNet, error) {
-	if p.hasEntry && p.networkEquals(network) {
-		if p.childrenCount() > 1 {
-			p.hasEntry = false
-		} else {
-			// Has 0 or 1 child.
-			parentBits, err := p.parent.targetBitsFromIP(networkNumber)
-			if err != nil {
-				return nil, err
-			}
-			var skipChild *PrefixTrie
-			for _, child := range p.children {
-				if child != nil {
-					skipChild = child
-					break
-				}
-			}
-			p.parent.children[parentBits] = skipChild
-		}
-		return network, nil
-	}
-	bits, err := p.targetBitsFromIP(networkNumber)
-	if err != nil {
-		return nil, err
-	}
-	child := p.children[bits]
-	if child != nil {
-		return child.remove(network, networkNumber)
-	}
-	return nil, nil
+	return p.remove(rnet.NewNetwork(network))
 }
 
 func (p *PrefixTrie) childrenCount() int {
@@ -147,21 +99,21 @@ func (p *PrefixTrie) childrenCount() int {
 // Contains returns boolean indicating whether given ip is contained in any
 // of the inserted networks.
 func (p *PrefixTrie) Contains(ip net.IP) (bool, error) {
-	ipUint32, err := iputil.IPv4ToUint32(ip)
-	if err != nil {
-		return false, err
+	nn := rnet.NewNetworkNumber(ip)
+	if nn == nil {
+		return false, ranger.ErrInvalidNetworkNumberInput
 	}
-	return p.contains(ipUint32)
+	return p.contains(nn)
 }
 
 // ContainingNetworks returns the list of networks given ip is a part of in
 // ascending prefix order.
 func (p *PrefixTrie) ContainingNetworks(ip net.IP) ([]net.IPNet, error) {
-	ipUint32, err := iputil.IPv4ToUint32(ip)
-	if err != nil {
-		return nil, err
+	nn := rnet.NewNetworkNumber(ip)
+	if nn == nil {
+		return nil, ranger.ErrInvalidNetworkNumberInput
 	}
-	return p.containingNetworks(ipUint32)
+	return p.containingNetworks(nn)
 }
 
 // String returns string representation of trie, mainly for visualization and
@@ -180,39 +132,39 @@ func (p *PrefixTrie) String() string {
 		p.targetBitPosition(), p.hasEntry, strings.Join(children, ""))
 }
 
-func (p *PrefixTrie) contains(ip uint32) (bool, error) {
-	if !p.containsIP(ip) {
+func (p *PrefixTrie) contains(number rnet.NetworkNumber) (bool, error) {
+	if !p.network.Contains(number) {
 		return false, nil
 	}
 	if p.hasEntry {
 		return true, nil
 	}
-	bits, err := p.targetBitsFromIP(ip)
+	bit, err := p.targetBitFromIP(number)
 	if err != nil {
 		return false, err
 	}
-	child := p.children[bits]
+	child := p.children[bit]
 	if child != nil {
-		return child.contains(ip)
+		return child.contains(number)
 	}
 	return false, nil
 }
 
-func (p *PrefixTrie) containingNetworks(ip uint32) ([]net.IPNet, error) {
+func (p *PrefixTrie) containingNetworks(number rnet.NetworkNumber) ([]net.IPNet, error) {
 	results := []net.IPNet{}
-	if !p.containsIP(ip) {
+	if !p.network.Contains(number) {
 		return results, nil
 	}
 	if p.hasEntry {
-		results = []net.IPNet{*p.network}
+		results = []net.IPNet{p.network.IPNet}
 	}
-	bits, err := p.targetBitsFromIP(ip)
+	bit, err := p.targetBitFromIP(number)
 	if err != nil {
 		return nil, err
 	}
-	child := p.children[bits]
+	child := p.children[bit]
 	if child != nil {
-		ranges, err := child.containingNetworks(ip)
+		ranges, err := child.containingNetworks(number)
 		if err != nil {
 			return nil, err
 		}
@@ -223,70 +175,94 @@ func (p *PrefixTrie) containingNetworks(ip uint32) ([]net.IPNet, error) {
 	return results, nil
 }
 
-func (p *PrefixTrie) insert(network *net.IPNet, networkNumber uint32) error {
-	if p.networkEquals(network) {
+func (p *PrefixTrie) insert(network rnet.Network) error {
+	if p.network.Equal(network) {
 		p.hasEntry = true
 		return nil
 	}
-	bits, err := p.targetBitsFromIP(networkNumber)
+	bit, err := p.targetBitFromIP(network.Number)
 	if err != nil {
 		return err
 	}
-	child := p.children[bits]
+	child := p.children[bit]
 	if child == nil {
 		var entry *PrefixTrie
 		entry, err = newEntryTrie(network)
 		if err != nil {
 			return err
 		}
-		return p.insertPrefix(bits, entry)
+		return p.insertPrefix(bit, entry)
 	}
 
-	greatestCommonPosition, err := cidr.GreatestCommonBitPosition(network, child.network)
+	lcb, err := network.LeastCommonBitPosition(child.network)
 	if err != nil {
 		return err
 	}
-	if greatestCommonPosition-1 > child.targetBitPosition() {
-		child, err = newPathPrefixTrie(network, 32-greatestCommonPosition)
+	if lcb-1 > child.targetBitPosition() {
+		child, err = newPathPrefixTrie(network, 32-lcb)
 		if err != nil {
 			return err
 		}
-		err := p.insertPrefix(bits, child)
+		err := p.insertPrefix(bit, child)
 		if err != nil {
 			return err
 		}
 	}
-	return child.insert(network, networkNumber)
-}
-
-func (p *PrefixTrie) containsIP(ip uint32) bool {
-	return ip&p.networkMask == p.networkNumber
+	return child.insert(network)
 }
 
 func (p *PrefixTrie) insertPrefix(bits uint32, prefix *PrefixTrie) error {
 	child := p.children[bits]
 	if child != nil {
-		prefixBits, err := prefix.targetBitsFromIP(child.networkNumber)
+		prefixBit, err := prefix.targetBitFromIP(child.network.Number)
 		if err != nil {
 			return err
 		}
-		prefix.insertPrefix(prefixBits, child)
+		prefix.insertPrefix(prefixBit, child)
 	}
 	p.children[bits] = prefix
 	prefix.parent = p
 	return nil
 }
 
-func (p *PrefixTrie) targetBitPosition() uint8 {
+func (p *PrefixTrie) remove(network rnet.Network) (*net.IPNet, error) {
+	if p.hasEntry && p.network.Equal(network) {
+		if p.childrenCount() > 1 {
+			p.hasEntry = false
+		} else {
+			// Has 0 or 1 child.
+			parentBits, err := p.parent.targetBitFromIP(network.Number)
+			if err != nil {
+				return nil, err
+			}
+			var skipChild *PrefixTrie
+			for _, child := range p.children {
+				if child != nil {
+					skipChild = child
+					break
+				}
+			}
+			p.parent.children[parentBits] = skipChild
+		}
+		return &network.IPNet, nil
+	}
+	bit, err := p.targetBitFromIP(network.Number)
+	if err != nil {
+		return nil, err
+	}
+	child := p.children[bit]
+	if child != nil {
+		return child.remove(network)
+	}
+	return nil, nil
+}
+
+func (p *PrefixTrie) targetBitPosition() uint {
 	return 31 - p.numBitsSkipped
 }
 
-func (p *PrefixTrie) networkEquals(network *net.IPNet) bool {
-	return p.network.String() == network.String()
-}
-
-func (p *PrefixTrie) targetBitsFromIP(ip uint32) (uint32, error) {
-	return iputil.IPv4BitsAsUint(ip, p.targetBitPosition(), p.numBitsHandled)
+func (p *PrefixTrie) targetBitFromIP(n rnet.NetworkNumber) (uint32, error) {
+	return n.Bit(p.targetBitPosition())
 }
 
 func (p *PrefixTrie) level() int {
@@ -301,7 +277,7 @@ func (p *PrefixTrie) walkDepth() <-chan net.IPNet {
 	networks := make(chan net.IPNet)
 	go func() {
 		if p.hasEntry {
-			networks <- *p.network
+			networks <- p.network.IPNet
 		}
 		subNetworks := []<-chan net.IPNet{}
 		for _, trie := range p.children {
