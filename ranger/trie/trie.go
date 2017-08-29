@@ -86,16 +86,6 @@ func (p *PrefixTrie) Remove(network net.IPNet) (*net.IPNet, error) {
 	return p.remove(rnet.NewNetwork(network))
 }
 
-func (p *PrefixTrie) childrenCount() int {
-	count := 0
-	for _, child := range p.children {
-		if child != nil {
-			count++
-		}
-	}
-	return count
-}
-
 // Contains returns boolean indicating whether given ip is contained in any
 // of the inserted networks.
 func (p *PrefixTrie) Contains(ip net.IP) (bool, error) {
@@ -255,6 +245,16 @@ func (p *PrefixTrie) remove(network rnet.Network) (*net.IPNet, error) {
 		return child.remove(network)
 	}
 	return nil, nil
+}
+
+func (p *PrefixTrie) childrenCount() int {
+	count := 0
+	for _, child := range p.children {
+		if child != nil {
+			count++
+		}
+	}
+	return count
 }
 
 func (p *PrefixTrie) targetBitPosition() uint {
