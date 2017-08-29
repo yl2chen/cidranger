@@ -59,6 +59,21 @@ func TestInsert(t *testing.T) {
 	}
 }
 
+func TestString(t *testing.T) {
+	inserts := []string{"192.168.0.1/24", "192.168.1.1/24", "192.168.1.1/30"}
+	trie := NewPrefixTree()
+	for _, insert := range inserts {
+		_, network, _ := net.ParseCIDR(insert)
+		trie.Insert(*network)
+	}
+	expected := `0.0.0.0/0 (target_pos:31:has_entry:false)
+| 1--> 192.168.0.0/23 (target_pos:8:has_entry:false)
+| | 0--> 192.168.0.0/24 (target_pos:7:has_entry:true)
+| | 1--> 192.168.1.0/24 (target_pos:7:has_entry:true)
+| | | 0--> 192.168.1.0/30 (target_pos:1:has_entry:true)`
+	assert.Equal(t, expected, trie.String())
+}
+
 func TestRemove(t *testing.T) {
 	cases := []struct {
 		inserts                      []string

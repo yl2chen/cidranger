@@ -59,21 +59,18 @@ func NewPrefixTree() *PrefixTrie {
 	}
 }
 
-func newPathPrefixTrie(network rnet.Network, numBitsSkipped uint) (*PrefixTrie, error) {
+func newPathPrefixTrie(network rnet.Network, numBitsSkipped uint) *PrefixTrie {
 	path := NewPrefixTree()
 	path.numBitsSkipped = numBitsSkipped
 	path.network = network.Masked(int(numBitsSkipped))
-	return path, nil
+	return path
 }
 
-func newEntryTrie(network rnet.Network) (*PrefixTrie, error) {
+func newEntryTrie(network rnet.Network) *PrefixTrie {
 	ones, _ := network.IPNet.Mask.Size()
-	leaf, err := newPathPrefixTrie(network, uint(ones))
-	if err != nil {
-		return nil, err
-	}
+	leaf := newPathPrefixTrie(network, uint(ones))
 	leaf.hasEntry = true
-	return leaf, nil
+	return leaf
 }
 
 // Insert inserts the given cidr range into prefix trie.
@@ -176,12 +173,7 @@ func (p *PrefixTrie) insert(network rnet.Network) error {
 	}
 	child := p.children[bit]
 	if child == nil {
-		var entry *PrefixTrie
-		entry, err = newEntryTrie(network)
-		if err != nil {
-			return err
-		}
-		return p.insertPrefix(bit, entry)
+		return p.insertPrefix(bit, newEntryTrie(network))
 	}
 
 	lcb, err := network.LeastCommonBitPosition(child.network)
@@ -189,10 +181,7 @@ func (p *PrefixTrie) insert(network rnet.Network) error {
 		return err
 	}
 	if lcb-1 > child.targetBitPosition() {
-		child, err = newPathPrefixTrie(network, 32-lcb)
-		if err != nil {
-			return err
-		}
+		child = newPathPrefixTrie(network, 32-lcb)
 		err := p.insertPrefix(bit, child)
 		if err != nil {
 			return err
