@@ -14,7 +14,7 @@ import (
   "github.com/yl2chen/cidranger"
 )
 ```
-Creates a new ranger inmplemented using Level-Path-Compressed (path compressed capability coming soon) trie.
+Creates a new ranger inmplemented using Level-Path-Compressed (level compressed capability coming soon) trie.
 ```
 ranger := NewLPCTrieRanger()
 ```
