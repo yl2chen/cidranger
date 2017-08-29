@@ -1,5 +1,5 @@
 /*
-Package ip provides utility functions for working with IPs (net.IP).
+Package net provides utility functions for working with IPs (net.IP).
 */
 package net
 
