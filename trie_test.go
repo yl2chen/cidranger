@@ -118,7 +118,7 @@ func TestPrefixTrieRemove(t *testing.T) {
 			[]string{"192.168.0.1/26"},
 			[]string{""},
 			[]string{"192.168.0.1/24", "192.168.0.1/25"},
-			"remove non existant",
+			"remove non existent",
 		},
 	}
 
@@ -172,7 +172,7 @@ func TestPrefixTrieContains(t *testing.T) {
 			rnet.IPv4,
 			[]string{"192.168.0.0/24"},
 			[]expectedIPRange{
-				expectedIPRange{net.ParseIP("192.168.0.0"), net.ParseIP("192.168.1.0")},
+				{net.ParseIP("192.168.0.0"), net.ParseIP("192.168.1.0")},
 			},
 			"basic contains",
 		},
@@ -180,8 +180,8 @@ func TestPrefixTrieContains(t *testing.T) {
 			rnet.IPv4,
 			[]string{"192.168.0.0/24", "128.168.0.0/24"},
 			[]expectedIPRange{
-				expectedIPRange{net.ParseIP("192.168.0.0"), net.ParseIP("192.168.1.0")},
-				expectedIPRange{net.ParseIP("128.168.0.0"), net.ParseIP("128.168.1.0")},
+				{net.ParseIP("192.168.0.0"), net.ParseIP("192.168.1.0")},
+				{net.ParseIP("128.168.0.0"), net.ParseIP("128.168.1.0")},
 			},
 			"multiple ranges contains",
 		},
