@@ -1,4 +1,4 @@
-package trie
+package cidranger
 
 import (
 	"net"
@@ -8,29 +8,34 @@ import (
 	rnet "github.com/yl2chen/cidranger/net"
 )
 
-func TestInsert(t *testing.T) {
+func TestPrefixTrieInsert(t *testing.T) {
 	cases := []struct {
+		version                      rnet.IPVersion
 		inserts                      []string
 		expectedNetworksInDepthOrder []string
 		name                         string
 	}{
-		{[]string{"192.168.0.1/24"}, []string{"192.168.0.1/24"}, "basic insert"},
+		{rnet.IPv4, []string{"192.168.0.1/24"}, []string{"192.168.0.1/24"}, "basic insert"},
 		{
+			rnet.IPv4,
 			[]string{"192.168.0.1/16", "192.168.0.1/24"},
 			[]string{"192.168.0.1/16", "192.168.0.1/24"},
 			"in order insert",
 		},
 		{
+			rnet.IPv4,
 			[]string{"192.168.0.1/24", "192.168.0.1/16"},
 			[]string{"192.168.0.1/16", "192.168.0.1/24"},
 			"reverse insert",
 		},
 		{
+			rnet.IPv4,
 			[]string{"192.168.0.1/24", "192.168.1.1/24"},
 			[]string{"192.168.0.1/24", "192.168.1.1/24"},
 			"branch insert",
 		},
 		{
+			rnet.IPv4,
 			[]string{"192.168.0.1/24", "192.168.1.1/24", "192.168.1.1/30"},
 			[]string{"192.168.0.1/24", "192.168.1.1/24", "192.168.1.1/30"},
 			"branch inserts",
@@ -38,7 +43,7 @@ func TestInsert(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			trie := NewPrefixTree()
+			trie := newPrefixTree(tc.version).(*prefixTrie)
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
 				err := trie.Insert(*network)
@@ -59,9 +64,9 @@ func TestInsert(t *testing.T) {
 	}
 }
 
-func TestString(t *testing.T) {
+func TestPrefixTrieString(t *testing.T) {
 	inserts := []string{"192.168.0.1/24", "192.168.1.1/24", "192.168.1.1/30"}
-	trie := NewPrefixTree()
+	trie := newPrefixTree(rnet.IPv4).(*prefixTrie)
 	for _, insert := range inserts {
 		_, network, _ := net.ParseCIDR(insert)
 		trie.Insert(*network)
@@ -74,8 +79,9 @@ func TestString(t *testing.T) {
 	assert.Equal(t, expected, trie.String())
 }
 
-func TestRemove(t *testing.T) {
+func TestPrefixTrieRemove(t *testing.T) {
 	cases := []struct {
+		version                      rnet.IPVersion
 		inserts                      []string
 		removes                      []string
 		expectedRemoves              []string
@@ -83,6 +89,7 @@ func TestRemove(t *testing.T) {
 		name                         string
 	}{
 		{
+			rnet.IPv4,
 			[]string{"192.168.0.1/24"},
 			[]string{"192.168.0.1/24"},
 			[]string{"192.168.0.1/24"},
@@ -90,6 +97,7 @@ func TestRemove(t *testing.T) {
 			"basic remove",
 		},
 		{
+			rnet.IPv4,
 			[]string{"192.168.0.1/24", "192.168.0.1/25", "192.168.0.1/26"},
 			[]string{"192.168.0.1/25"},
 			[]string{"192.168.0.1/25"},
@@ -97,6 +105,7 @@ func TestRemove(t *testing.T) {
 			"remove path prefix",
 		},
 		{
+			rnet.IPv4,
 			[]string{"192.168.0.1/24", "192.168.0.1/25", "192.168.0.64/26", "192.168.0.1/26"},
 			[]string{"192.168.0.1/25"},
 			[]string{"192.168.0.1/25"},
@@ -104,6 +113,7 @@ func TestRemove(t *testing.T) {
 			"remove path prefix with more than 1 children",
 		},
 		{
+			rnet.IPv4,
 			[]string{"192.168.0.1/24", "192.168.0.1/25"},
 			[]string{"192.168.0.1/26"},
 			[]string{""},
@@ -114,8 +124,7 @@ func TestRemove(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-
-			trie := NewPrefixTree()
+			trie := newPrefixTree(tc.version).(*prefixTrie)
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
 				err := trie.Insert(*network)
@@ -152,13 +161,15 @@ type expectedIPRange struct {
 	end   net.IP
 }
 
-func TestContains(t *testing.T) {
+func TestPrefixTrieContains(t *testing.T) {
 	cases := []struct {
+		version     rnet.IPVersion
 		inserts     []string
 		expectedIPs []expectedIPRange
 		name        string
 	}{
 		{
+			rnet.IPv4,
 			[]string{"192.168.0.0/24"},
 			[]expectedIPRange{
 				expectedIPRange{net.ParseIP("192.168.0.0"), net.ParseIP("192.168.1.0")},
@@ -166,6 +177,7 @@ func TestContains(t *testing.T) {
 			"basic contains",
 		},
 		{
+			rnet.IPv4,
 			[]string{"192.168.0.0/24", "128.168.0.0/24"},
 			[]expectedIPRange{
 				expectedIPRange{net.ParseIP("192.168.0.0"), net.ParseIP("192.168.1.0")},
@@ -177,7 +189,7 @@ func TestContains(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			trie := NewPrefixTree()
+			trie := newPrefixTree(tc.version)
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
 				err := trie.Insert(*network)
@@ -205,20 +217,23 @@ func TestContains(t *testing.T) {
 	}
 }
 
-func TestContainingNetworks(t *testing.T) {
+func TestPrefixTrieContainingNetworks(t *testing.T) {
 	cases := []struct {
+		version  rnet.IPVersion
 		inserts  []string
 		ip       net.IP
 		networks []string
 		name     string
 	}{
 		{
+			rnet.IPv4,
 			[]string{"192.168.0.0/24"},
 			net.ParseIP("192.168.0.1"),
 			[]string{"192.168.0.0/24"},
 			"basic containing networks",
 		},
 		{
+			rnet.IPv4,
 			[]string{"192.168.0.0/24", "192.168.0.0/25"},
 			net.ParseIP("192.168.0.1"),
 			[]string{"192.168.0.0/24", "192.168.0.0/25"},
@@ -227,7 +242,7 @@ func TestContainingNetworks(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			trie := NewPrefixTree()
+			trie := newPrefixTree(tc.version)
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
 				err := trie.Insert(*network)

@@ -1,15 +1,14 @@
-package brute
+package cidranger
 
 import (
 	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/yl2chen/cidranger/ranger"
 )
 
 func TestInsert(t *testing.T) {
-	ranger := NewRanger()
+	ranger := newBruteRanger().(*bruteRanger)
 	_, networkIPv4, _ := net.ParseCIDR("0.0.1.0/24")
 	_, networkIPv6, _ := net.ParseCIDR("8000::/96")
 
@@ -23,15 +22,15 @@ func TestInsert(t *testing.T) {
 }
 
 func TestInsertError(t *testing.T) {
-	bRanger := NewRanger()
+	bRanger := newBruteRanger().(*bruteRanger)
 	_, networkIPv4, _ := net.ParseCIDR("0.0.1.0/24")
 	networkIPv4.IP = append(networkIPv4.IP, byte(4))
 	err := bRanger.Insert(*networkIPv4)
-	assert.Equal(t, ranger.ErrInvalidNetworkInput, err)
+	assert.Equal(t, ErrInvalidNetworkInput, err)
 }
 
 func TestRemove(t *testing.T) {
-	ranger := NewRanger()
+	ranger := newBruteRanger().(*bruteRanger)
 	_, networkIPv4, _ := net.ParseCIDR("0.0.1.0/24")
 	_, networkIPv6, _ := net.ParseCIDR("8000::/96")
 	_, notInserted, _ := net.ParseCIDR("8000::/96")
@@ -55,16 +54,16 @@ func TestRemove(t *testing.T) {
 }
 
 func TestRemoveError(t *testing.T) {
-	r := NewRanger()
+	r := newBruteRanger().(*bruteRanger)
 	_, invalidNetwork, _ := net.ParseCIDR("0.0.1.0/24")
 	invalidNetwork.IP = append(invalidNetwork.IP, byte(4))
 
 	_, err := r.Remove(*invalidNetwork)
-	assert.Equal(t, ranger.ErrInvalidNetworkInput, err)
+	assert.Equal(t, ErrInvalidNetworkInput, err)
 }
 
 func TestContains(t *testing.T) {
-	r := NewRanger()
+	r := newBruteRanger().(*bruteRanger)
 	_, network, _ := net.ParseCIDR("0.0.1.0/24")
 	_, network1, _ := net.ParseCIDR("8000::/112")
 	r.Insert(*network)
@@ -80,7 +79,7 @@ func TestContains(t *testing.T) {
 		{net.ParseIP("0.0.0.255"), false, nil, "IPv4 houldn't contain"},
 		{net.ParseIP("8000::ffff"), true, nil, "IPv6 shouldn't contain"},
 		{net.ParseIP("8000::1:ffff"), false, nil, "IPv6 shouldn't contain"},
-		{append(net.ParseIP("8000::1:ffff"), byte(0)), false, ranger.ErrInvalidNetworkInput, "Invalid IP"},
+		{append(net.ParseIP("8000::1:ffff"), byte(0)), false, ErrInvalidNetworkInput, "Invalid IP"},
 	}
 
 	for _, tc := range cases {
@@ -97,7 +96,7 @@ func TestContains(t *testing.T) {
 }
 
 func TestContainingNetworks(t *testing.T) {
-	r := NewRanger()
+	r := newBruteRanger().(*bruteRanger)
 	_, network1, _ := net.ParseCIDR("0.0.1.0/24")
 	_, network2, _ := net.ParseCIDR("0.0.1.0/25")
 	_, network3, _ := net.ParseCIDR("8000::/112")
@@ -118,7 +117,7 @@ func TestContainingNetworks(t *testing.T) {
 		{net.ParseIP("8000::ffff"), []net.IPNet{*network3}, nil, "IPv6 should constain"},
 		{net.ParseIP("8000::7fff"), []net.IPNet{*network3, *network4}, nil, "IPv6 should contain both"},
 		{net.ParseIP("8000::1:7fff"), []net.IPNet{}, nil, "IPv6 should contain none"},
-		{append(net.ParseIP("8000::1:7fff"), byte(0)), nil, ranger.ErrInvalidNetworkInput, "Invalid IP"},
+		{append(net.ParseIP("8000::1:7fff"), byte(0)), nil, ErrInvalidNetworkInput, "Invalid IP"},
 	}
 
 	for _, tc := range cases {

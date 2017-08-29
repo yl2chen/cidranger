@@ -1,39 +1,34 @@
-/*
-Package brute provides the brute force implementation of Ranger.  Insertion and
-deletion of networks is performed on an internal storage in the form of
-map[string]net.IPNet (constant time operations).  However, inclusion tests are
-always performed linearly at no guaranteed traversal order of recorded networks,
-so one can assume a worst case performance of O(N).  The performance can be
-boosted by changing usage of net.IPNet.Contains() to using masked bits
-equality checking, but the main purpose of this implementation is for testing
-because the correctness of this implementation can be easily guaranteed, and
-used as the ground truth when running a wider range of 'random' tests on other
-more sophisticated implementations.
-*/
-package brute
+package cidranger
 
 import (
 	"net"
-
-	"github.com/yl2chen/cidranger/ranger"
 )
 
-// Ranger is a Ranger that uses brute force operations.
-type Ranger struct {
+// bruteRanger is a brute force implementation of Ranger.  Insertion and
+// deletion of networks is performed on an internal storage in the form of
+// map[string]net.IPNet (constant time operations).  However, inclusion tests are
+// always performed linearly at no guaranteed traversal order of recorded networks,
+// so one can assume a worst case performance of O(N).  The performance can be
+// boosted many ways, e.g. changing usage of net.IPNet.Contains() to using masked
+// bits equality checking, but the main purpose of this implementation is for
+// testing because the correctness of this implementation can be easily guaranteed,
+// and used as the ground truth when running a wider range of 'random' tests on
+// other more sophisticated implementations.
+type bruteRanger struct {
 	ipV4Networks map[string]net.IPNet
 	ipV6Networks map[string]net.IPNet
 }
 
-// NewRanger returns a new Ranger.
-func NewRanger() *Ranger {
-	return &Ranger{
+// newBruteRanger returns a new Ranger.
+func newBruteRanger() Ranger {
+	return &bruteRanger{
 		ipV4Networks: make(map[string]net.IPNet),
 		ipV6Networks: make(map[string]net.IPNet),
 	}
 }
 
 // Insert inserts a network into ranger.
-func (b *Ranger) Insert(network net.IPNet) error {
+func (b *bruteRanger) Insert(network net.IPNet) error {
 	key := network.String()
 	if _, found := b.ipV4Networks[key]; !found {
 		networks, err := b.getNetworksByVersion(network.IP)
@@ -46,7 +41,7 @@ func (b *Ranger) Insert(network net.IPNet) error {
 }
 
 // Remove removes a network from ranger.
-func (b *Ranger) Remove(network net.IPNet) (*net.IPNet, error) {
+func (b *bruteRanger) Remove(network net.IPNet) (*net.IPNet, error) {
 	networks, err := b.getNetworksByVersion(network.IP)
 	if err != nil {
 		return nil, err
@@ -61,7 +56,7 @@ func (b *Ranger) Remove(network net.IPNet) (*net.IPNet, error) {
 
 // Contains returns bool indicating whether given ip is contained by any
 // network in ranger.
-func (b *Ranger) Contains(ip net.IP) (bool, error) {
+func (b *bruteRanger) Contains(ip net.IP) (bool, error) {
 	networks, err := b.getNetworksByVersion(ip)
 	if err != nil {
 		return false, err
@@ -75,7 +70,7 @@ func (b *Ranger) Contains(ip net.IP) (bool, error) {
 }
 
 // ContainingNetworks returns all networks given ip is a part of.
-func (b *Ranger) ContainingNetworks(ip net.IP) ([]net.IPNet, error) {
+func (b *bruteRanger) ContainingNetworks(ip net.IP) ([]net.IPNet, error) {
 	networks, err := b.getNetworksByVersion(ip)
 	if err != nil {
 		return nil, err
@@ -89,12 +84,12 @@ func (b *Ranger) ContainingNetworks(ip net.IP) ([]net.IPNet, error) {
 	return results, nil
 }
 
-func (b *Ranger) getNetworksByVersion(ip net.IP) (map[string]net.IPNet, error) {
+func (b *bruteRanger) getNetworksByVersion(ip net.IP) (map[string]net.IPNet, error) {
 	if ip.To4() != nil {
 		return b.ipV4Networks, nil
 	}
 	if ip.To16() != nil {
 		return b.ipV6Networks, nil
 	}
-	return nil, ranger.ErrInvalidNetworkInput
+	return nil, ErrInvalidNetworkInput
 }

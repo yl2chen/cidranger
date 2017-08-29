@@ -25,11 +25,15 @@ To get a list of CIDR blocks in constructed ranger that contains IP:
 package cidranger
 
 import (
+	"fmt"
 	"net"
-
-	"github.com/yl2chen/cidranger/ranger/brute"
-	"github.com/yl2chen/cidranger/ranger/trie"
 )
+
+// ErrInvalidNetworkInput is returned upon invalid network input.
+var ErrInvalidNetworkInput = fmt.Errorf("Invalid network input")
+
+// ErrInvalidNetworkNumberInput is returned upon invalid network input.
+var ErrInvalidNetworkNumberInput = fmt.Errorf("Invalid network number input")
 
 // Ranger is an interface for cidr block containment lookups.
 type Ranger interface {
@@ -39,12 +43,8 @@ type Ranger interface {
 	ContainingNetworks(ip net.IP) ([]net.IPNet, error)
 }
 
-// NewLPCTrieRanger returns an instance of LPC trie ranger.
+// NewLPCTrieRanger returns a versionedRanger that supports both IPv4 and IPv6
+// using the LPC trie implemention.
 func NewLPCTrieRanger() Ranger {
-	return trie.NewPrefixTree()
-}
-
-// NewBruteRanger returns an instance of brute force ranger.
-func NewBruteRanger() Ranger {
-	return brute.NewRanger()
+	return newVersionedRanger(newPrefixTree)
 }

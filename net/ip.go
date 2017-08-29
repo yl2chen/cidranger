@@ -10,13 +10,19 @@ import (
 	"net"
 )
 
-// IP address uint32 components count.
+// IPVersion is version of IP address.
+type IPVersion string
+
+// Helper constants.
 const (
 	IPv4Uint32Count = 1
 	IPv6Uint32Count = 4
 
 	BitsPerUint32 = 32
 	BytePerUint32 = 4
+
+	IPv4 IPVersion = "IPv4"
+	IPv6 IPVersion = "IPv6"
 )
 
 // ErrInvalidBitPosition is returned when bits requested is not valid.

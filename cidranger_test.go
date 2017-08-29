@@ -6,20 +6,11 @@ import (
 	"math/rand"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	rnet "github.com/yl2chen/cidranger/net"
 )
-
-type AWSRanges struct {
-	Prefixes []Prefix `json:"prefixes"`
-}
-
-type Prefix struct {
-	IPPrefix string `json:"ip_prefix"`
-	Region   string `json:"region"`
-	Service  string `json:"service"`
-}
 
 /*
  ******************************************************************
@@ -27,16 +18,35 @@ type Prefix struct {
  ******************************************************************
 */
 
-func TestContainsAgainstBase(t *testing.T) {
+func TestContainsAgainstBaseIPv4(t *testing.T) {
+	testContainsAgainstBase(t, 100000, randIPv4Gen)
+}
+
+func TestContainingNetworksAgaistBaseIPv4(t *testing.T) {
+	testContainingNetworksAgainstBase(t, 100000, randIPv4Gen)
+}
+
+// IPv6 spans an extremely large address space (2^128), randomly generated IPs
+// will often fall outside of the test ranges (AWS public CIDR blocks), so it
+// it more meaningful for testing to run from a curated list of IPv6 IPs.
+func TestContainsAgaistBaseIPv6(t *testing.T) {
+	testContainsAgainstBase(t, 100000, curatedAWSIPv6Gen)
+}
+
+func TestContainingNetworksAgaistBaseIPv6(t *testing.T) {
+	testContainingNetworksAgainstBase(t, 100000, curatedAWSIPv6Gen)
+}
+
+func testContainsAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
 	rangers := []Ranger{NewLPCTrieRanger()}
-	baseRanger := NewBruteRanger()
+	baseRanger := newBruteRanger()
 	for _, ranger := range rangers {
 		configureRangerWithAWSRanges(t, ranger)
 	}
 	configureRangerWithAWSRanges(t, baseRanger)
 
-	for i := 0; i < 100000; i++ {
-		nn := rnet.NetworkNumber{rand.Uint32()}
+	for i := 0; i < iterations; i++ {
+		nn := ipGen()
 		expected, err := baseRanger.Contains(nn.ToIP())
 		for _, ranger := range rangers {
 			assert.NoError(t, err)
@@ -47,16 +57,16 @@ func TestContainsAgainstBase(t *testing.T) {
 	}
 }
 
-func TestContainingNetworksAgainstBase(t *testing.T) {
+func testContainingNetworksAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
 	rangers := []Ranger{NewLPCTrieRanger()}
-	baseRanger := NewBruteRanger()
+	baseRanger := newBruteRanger()
 	for _, ranger := range rangers {
 		configureRangerWithAWSRanges(t, ranger)
 	}
 	configureRangerWithAWSRanges(t, baseRanger)
 
-	for i := 0; i < 100000; i++ {
-		nn := rnet.NetworkNumber{rand.Uint32()}
+	for i := 0; i < iterations; i++ {
+		nn := ipGen()
 		expected, err := baseRanger.ContainingNetworks(nn.ToIP())
 		for _, ranger := range rangers {
 			assert.NoError(t, err)
@@ -70,29 +80,36 @@ func TestContainingNetworksAgainstBase(t *testing.T) {
 	}
 }
 
-func BenchmarkLPCTrieHitUsingAWSRanges(b *testing.B) {
+/*
+ ******************************************************************
+ Benchmarks.
+ ******************************************************************
+*/
+
+func BenchmarkLPCTrieHitIPv4UsingAWSRanges(b *testing.B) {
 	benchmarkContainsUsingAWSRanges(b, net.ParseIP("52.95.110.1"), NewLPCTrieRanger())
 }
-
-func BenchmarkBruteRangerHitUsingAWSRanges(b *testing.B) {
-	benchmarkContainsUsingAWSRanges(b, net.ParseIP("52.95.110.1"), NewBruteRanger())
+func BenchmarkLPCTrieHitIPv6UsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("2620:107:300f::36b7:ff81"), NewLPCTrieRanger())
+}
+func BenchmarkBruteRangerHitIPv4UsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("52.95.110.1"), newBruteRanger())
+}
+func BenchmarkBruteRangerHitIPv6UsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("2620:107:300f::36b7:ff81"), newBruteRanger())
 }
 
-func BenchmarkLPCTrieMissUsingAWSRanges(b *testing.B) {
+func BenchmarkLPCTrieMissIPv4UsingAWSRanges(b *testing.B) {
 	benchmarkContainsUsingAWSRanges(b, net.ParseIP("123.123.123.123"), NewLPCTrieRanger())
 }
-
-func BenchmarkBruteRangerMissUsingAWSRanges(b *testing.B) {
-	benchmarkContainsUsingAWSRanges(b, net.ParseIP("123.123.123.123"), NewBruteRanger())
+func BenchmarkLPCTrieHMissIPv6UsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("2620::ffff"), NewLPCTrieRanger())
 }
-
-func configureRangerWithAWSRanges(tb testing.TB, ranger Ranger) {
-	ranges := loadAWSRanges(tb)
-	for _, prefix := range ranges.Prefixes {
-		_, network, err := net.ParseCIDR(prefix.IPPrefix)
-		assert.NoError(tb, err)
-		ranger.Insert(*network)
-	}
+func BenchmarkBruteRangerMissIPv4UsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("123.123.123.123"), newBruteRanger())
+}
+func BenchmarkBruteRangerMissIPv6UsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("2620::ffff"), newBruteRanger())
 }
 
 func benchmarkContainsUsingAWSRanges(tb testing.TB, nn net.IP, ranger Ranger) {
@@ -102,12 +119,84 @@ func benchmarkContainsUsingAWSRanges(tb testing.TB, nn net.IP, ranger Ranger) {
 	}
 }
 
-func loadAWSRanges(tb testing.TB) *AWSRanges {
-	file, err := ioutil.ReadFile("./testdata/aws_ip_ranges.json")
-	assert.NoError(tb, err)
+/*
+ ******************************************************************
+ Helper methods and initialization.
+ ******************************************************************
+*/
 
+type ipGenerator func() rnet.NetworkNumber
+
+func randIPv4Gen() rnet.NetworkNumber {
+	return rnet.NetworkNumber{rand.Uint32()}
+}
+func randIPv6Gen() rnet.NetworkNumber {
+	return rnet.NetworkNumber{rand.Uint32(), rand.Uint32(), rand.Uint32(), rand.Uint32()}
+}
+func curatedAWSIPv6Gen() rnet.NetworkNumber {
+	randIdx := rand.Intn(len(ipV6AWSRangesIPNets))
+
+	// Randomly generate an IP somewhat near the range.
+	network := ipV6AWSRangesIPNets[randIdx]
+	nn := rnet.NewNetworkNumber(network.IP)
+	ones, bits := network.Mask.Size()
+	zeros := bits - ones
+	nnPartIdx := zeros / rnet.BitsPerUint32
+	nn[nnPartIdx] = rand.Uint32()
+	return nn
+}
+
+type AWSRanges struct {
+	Prefixes     []Prefix     `json:"prefixes"`
+	IPv6Prefixes []IPv6Prefix `json:"ipv6_prefixes"`
+}
+
+type Prefix struct {
+	IPPrefix string `json:"ip_prefix"`
+	Region   string `json:"region"`
+	Service  string `json:"service"`
+}
+
+type IPv6Prefix struct {
+	IPPrefix string `json:"ipv6_prefix"`
+	Region   string `json:"region"`
+	Service  string `json:"service"`
+}
+
+var awsRanges *AWSRanges
+var ipV6AWSRangesIPNets []*net.IPNet
+
+func loadAWSRanges() *AWSRanges {
+	file, err := ioutil.ReadFile("./testdata/aws_ip_ranges.json")
+	if err != nil {
+		panic(err)
+	}
 	var ranges AWSRanges
 	err = json.Unmarshal(file, &ranges)
-	assert.NoError(tb, err)
+	if err != nil {
+		panic(err)
+	}
 	return &ranges
+}
+
+func configureRangerWithAWSRanges(tb testing.TB, ranger Ranger) {
+	for _, prefix := range awsRanges.Prefixes {
+		_, network, err := net.ParseCIDR(prefix.IPPrefix)
+		assert.NoError(tb, err)
+		ranger.Insert(*network)
+	}
+	for _, prefix := range awsRanges.IPv6Prefixes {
+		_, network, err := net.ParseCIDR(prefix.IPPrefix)
+		assert.NoError(tb, err)
+		ranger.Insert(*network)
+	}
+}
+
+func init() {
+	awsRanges = loadAWSRanges()
+	for _, prefix := range awsRanges.IPv6Prefixes {
+		_, network, _ := net.ParseCIDR(prefix.IPPrefix)
+		ipV6AWSRangesIPNets = append(ipV6AWSRangesIPNets, network)
+	}
+	rand.Seed(time.Now().Unix())
 }
