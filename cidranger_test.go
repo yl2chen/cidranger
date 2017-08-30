@@ -38,7 +38,7 @@ func TestContainingNetworksAgaistBaseIPv6(t *testing.T) {
 }
 
 func testContainsAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
-	rangers := []Ranger{NewLPCTrieRanger()}
+	rangers := []Ranger{NewPCTrieRanger()}
 	baseRanger := newBruteRanger()
 	for _, ranger := range rangers {
 		configureRangerWithAWSRanges(t, ranger)
@@ -58,7 +58,7 @@ func testContainsAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
 }
 
 func testContainingNetworksAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
-	rangers := []Ranger{NewLPCTrieRanger()}
+	rangers := []Ranger{NewPCTrieRanger()}
 	baseRanger := newBruteRanger()
 	for _, ranger := range rangers {
 		configureRangerWithAWSRanges(t, ranger)
@@ -86,27 +86,29 @@ func testContainingNetworksAgainstBase(t *testing.T, iterations int, ipGen ipGen
  ******************************************************************
 */
 
-func BenchmarkLPCTrieHitIPv4UsingAWSRanges(b *testing.B) {
-	benchmarkContainsUsingAWSRanges(b, net.ParseIP("52.95.110.1"), NewLPCTrieRanger())
-}
-func BenchmarkLPCTrieHitIPv6UsingAWSRanges(b *testing.B) {
-	benchmarkContainsUsingAWSRanges(b, net.ParseIP("2620:107:300f::36b7:ff81"), NewLPCTrieRanger())
+func BenchmarkPCTrieHitIPv4UsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("52.95.110.1"), NewPCTrieRanger())
 }
 func BenchmarkBruteRangerHitIPv4UsingAWSRanges(b *testing.B) {
 	benchmarkContainsUsingAWSRanges(b, net.ParseIP("52.95.110.1"), newBruteRanger())
+}
+
+func BenchmarkPCTrieHitIPv6UsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("2620:107:300f::36b7:ff81"), NewPCTrieRanger())
 }
 func BenchmarkBruteRangerHitIPv6UsingAWSRanges(b *testing.B) {
 	benchmarkContainsUsingAWSRanges(b, net.ParseIP("2620:107:300f::36b7:ff81"), newBruteRanger())
 }
 
-func BenchmarkLPCTrieMissIPv4UsingAWSRanges(b *testing.B) {
-	benchmarkContainsUsingAWSRanges(b, net.ParseIP("123.123.123.123"), NewLPCTrieRanger())
-}
-func BenchmarkLPCTrieHMissIPv6UsingAWSRanges(b *testing.B) {
-	benchmarkContainsUsingAWSRanges(b, net.ParseIP("2620::ffff"), NewLPCTrieRanger())
+func BenchmarkPCTrieMissIPv4UsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("123.123.123.123"), NewPCTrieRanger())
 }
 func BenchmarkBruteRangerMissIPv4UsingAWSRanges(b *testing.B) {
 	benchmarkContainsUsingAWSRanges(b, net.ParseIP("123.123.123.123"), newBruteRanger())
+}
+
+func BenchmarkPCTrieHMissIPv6UsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("2620::ffff"), NewPCTrieRanger())
 }
 func BenchmarkBruteRangerMissIPv6UsingAWSRanges(b *testing.B) {
 	benchmarkContainsUsingAWSRanges(b, net.ParseIP("2620::ffff"), newBruteRanger())

@@ -8,7 +8,7 @@ import (
 	rnet "github.com/yl2chen/cidranger/net"
 )
 
-// prefixTrie is a level-path-compressed (LPC) trie implementation of the
+// prefixTrie is a path-compressed (PC) trie implementation of the
 // ranger interface inspired by this blog post:
 // https://vincent.bernat.im/en/blog/2017-ipv4-route-lookup-linux
 //

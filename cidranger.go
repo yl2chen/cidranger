@@ -2,9 +2,9 @@
 Package cidranger provides utility to store CIDR blocks and perform ip
 inclusion tests against it.
 
-To create a new instance of the LPC (Level Path Compressed) trie:
+To create a new instance of the path-compressed trie:
 
-			ranger := NewLPCTrieRanger()
+			ranger := NewPCTrieRanger()
 
 To insert or remove cidr blocks (network ranges):
 			_, network, _ := net.ParseCIDR("192.168.0.0/24")
@@ -43,8 +43,8 @@ type Ranger interface {
 	ContainingNetworks(ip net.IP) ([]net.IPNet, error)
 }
 
-// NewLPCTrieRanger returns a versionedRanger that supports both IPv4 and IPv6
-// using the LPC trie implemention.
-func NewLPCTrieRanger() Ranger {
+// NewPCTrieRanger returns a versionedRanger that supports both IPv4 and IPv6
+// using the path compressed trie implemention.
+func NewPCTrieRanger() Ranger {
 	return newVersionedRanger(newPrefixTree)
 }
