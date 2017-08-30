@@ -7,43 +7,43 @@ Fast IP to belonging CIDR block(s) lookup using trie implementation, e.g. 192.16
 
 ### Usage
 Configure imports.
-```
+```go
 import (
-  "net",
+  "net"
   
   "github.com/yl2chen/cidranger"
 )
 ```
 Creates a new ranger inmplemented using Level-Path-Compressed (level compressed capability coming soon) trie.
-```
+```go
 ranger := NewLPCTrieRanger()
 ```
 Inserts CIDR blocks.
-```
+```go
 _, network1, _ := net.ParseCIDR("192.168.1.0/24")
 _, network2, _ := net.ParseCIDR("128.168.1.0/24")
 ranger.Insert(*network1)
 ranger.Insert(*network2)
 ```
 The prefix trie can be visualized as:
-```
+```go
 0.0.0.0/0 (target_pos:31:has_entry:false)
 | 1--> 128.0.0.0/1 (target_pos:30:has_entry:false)
 | | 0--> 128.168.1.0/24 (target_pos:7:has_entry:true)
 | | 1--> 192.168.1.0/24 (target_pos:7:has_entry:true)
 ```
-To test if given IP is contained in constructed ranger, IPv6 is not currently supported, an error will be returend if called with an IPv6 ip.
-```
+To test if given IP is contained in constructed ranger,
+```go
 contains, err = ranger.Contains(net.ParseIP("128.168.1.0")) // returns true, nil
 contains, err = ranger.Contains(net.ParseIP("192.168.2.0")) // returns false, nil
 ```
 To get all the networks given is contained in,
-```
+```go
 containingNetworks, err = ranger.ContainingNetworks(net.ParseIP("128.168.1.0"))
 ```
 
 ### Benchmark results comparing hit/miss for LPC trie vs brute force implementation, using AWS published ip ranges.
-```
+```go
 BenchmarkLPCTrieHitIPv4UsingAWSRanges-4        	 3000000	       389 ns/op
 BenchmarkBruteRangerHitIPv4UsingAWSRanges-4    	  100000	     14879 ns/op
 
@@ -58,7 +58,7 @@ BenchmarkBruteRangerMissIPv6UsingAWSRanges-4   	  100000	     11146 ns/op
 ```
 
 ### Example of IPv6 trie:
-```
+```go
 ::/0 (target_pos:127:has_entry:false)
 | 0--> 2400::/14 (target_pos:113:has_entry:false)
 | | 0--> 2400:6400::/22 (target_pos:105:has_entry:false)
