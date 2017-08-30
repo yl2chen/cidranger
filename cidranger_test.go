@@ -48,8 +48,8 @@ func testContainsAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
 	for i := 0; i < iterations; i++ {
 		nn := ipGen()
 		expected, err := baseRanger.Contains(nn.ToIP())
+		assert.NoError(t, err)
 		for _, ranger := range rangers {
-			assert.NoError(t, err)
 			actual, err := ranger.Contains(nn.ToIP())
 			assert.NoError(t, err)
 			assert.Equal(t, expected, actual)
@@ -68,8 +68,8 @@ func testContainingNetworksAgainstBase(t *testing.T, iterations int, ipGen ipGen
 	for i := 0; i < iterations; i++ {
 		nn := ipGen()
 		expected, err := baseRanger.ContainingNetworks(nn.ToIP())
+		assert.NoError(t, err)
 		for _, ranger := range rangers {
-			assert.NoError(t, err)
 			actual, err := ranger.ContainingNetworks(nn.ToIP())
 			assert.NoError(t, err)
 			assert.Equal(t, len(expected), len(actual))
