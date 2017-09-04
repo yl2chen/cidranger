@@ -114,10 +114,45 @@ func BenchmarkBruteRangerMissIPv6UsingAWSRanges(b *testing.B) {
 	benchmarkContainsUsingAWSRanges(b, net.ParseIP("2620::ffff"), newBruteRanger())
 }
 
+func BenchmarkPCTrieHitContainingNetworksIPv4UsingAWSRanges(b *testing.B) {
+	benchmarkContainingNetworksUsingAWSRanges(b, net.ParseIP("52.95.110.1"), NewPCTrieRanger())
+}
+func BenchmarkBruteRangerHitContainingNetworksIPv4UsingAWSRanges(b *testing.B) {
+	benchmarkContainingNetworksUsingAWSRanges(b, net.ParseIP("52.95.110.1"), newBruteRanger())
+}
+
+func BenchmarkPCTrieHitContainingNetworksIPv6UsingAWSRanges(b *testing.B) {
+	benchmarkContainingNetworksUsingAWSRanges(b, net.ParseIP("2620:107:300f::36b7:ff81"), NewPCTrieRanger())
+}
+func BenchmarkBruteRangerHitContainingNetworksIPv6UsingAWSRanges(b *testing.B) {
+	benchmarkContainingNetworksUsingAWSRanges(b, net.ParseIP("2620:107:300f::36b7:ff81"), newBruteRanger())
+}
+
+func BenchmarkPCTrieMissContainingNetworksIPv4UsingAWSRanges(b *testing.B) {
+	benchmarkContainingNetworksUsingAWSRanges(b, net.ParseIP("123.123.123.123"), NewPCTrieRanger())
+}
+func BenchmarkBruteRangerMissContainingNetworksIPv4UsingAWSRanges(b *testing.B) {
+	benchmarkContainingNetworksUsingAWSRanges(b, net.ParseIP("123.123.123.123"), newBruteRanger())
+}
+
+func BenchmarkPCTrieHMissContainingNetworksIPv6UsingAWSRanges(b *testing.B) {
+	benchmarkContainingNetworksUsingAWSRanges(b, net.ParseIP("2620::ffff"), NewPCTrieRanger())
+}
+func BenchmarkBruteRangerMissContainingNetworksIPv6UsingAWSRanges(b *testing.B) {
+	benchmarkContainingNetworksUsingAWSRanges(b, net.ParseIP("2620::ffff"), newBruteRanger())
+}
+
 func benchmarkContainsUsingAWSRanges(tb testing.TB, nn net.IP, ranger Ranger) {
 	configureRangerWithAWSRanges(tb, ranger)
 	for n := 0; n < tb.(*testing.B).N; n++ {
 		ranger.Contains(nn)
+	}
+}
+
+func benchmarkContainingNetworksUsingAWSRanges(tb testing.TB, nn net.IP, ranger Ranger) {
+	configureRangerWithAWSRanges(tb, ranger)
+	for n := 0; n < tb.(*testing.B).N; n++ {
+		ranger.ContainingNetworks(nn)
 	}
 }
 
@@ -185,12 +220,12 @@ func configureRangerWithAWSRanges(tb testing.TB, ranger Ranger) {
 	for _, prefix := range awsRanges.Prefixes {
 		_, network, err := net.ParseCIDR(prefix.IPPrefix)
 		assert.NoError(tb, err)
-		ranger.Insert(*network)
+		ranger.Insert(NewBasicRangerEntry(*network))
 	}
 	for _, prefix := range awsRanges.IPv6Prefixes {
 		_, network, err := net.ParseCIDR(prefix.IPPrefix)
 		assert.NoError(tb, err)
-		ranger.Insert(*network)
+		ranger.Insert(NewBasicRangerEntry(*network))
 	}
 }
 

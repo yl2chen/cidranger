@@ -46,14 +46,15 @@ func TestPrefixTrieInsert(t *testing.T) {
 			trie := newPrefixTree(tc.version).(*prefixTrie)
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
-				err := trie.Insert(*network)
+				err := trie.Insert(NewBasicRangerEntry(*network))
 				assert.NoError(t, err)
 			}
 			walk := trie.walkDepth()
 			for _, network := range tc.expectedNetworksInDepthOrder {
-				_, expected, _ := net.ParseCIDR(network)
+				_, ipnet, _ := net.ParseCIDR(network)
+				expected := NewBasicRangerEntry(*ipnet)
 				actual := <-walk
-				assert.Equal(t, *expected, actual)
+				assert.Equal(t, expected, actual)
 			}
 
 			// Ensure no unexpected elements in trie.
@@ -69,7 +70,7 @@ func TestPrefixTrieString(t *testing.T) {
 	trie := newPrefixTree(rnet.IPv4).(*prefixTrie)
 	for _, insert := range inserts {
 		_, network, _ := net.ParseCIDR(insert)
-		trie.Insert(*network)
+		trie.Insert(NewBasicRangerEntry(*network))
 	}
 	expected := `0.0.0.0/0 (target_pos:31:has_entry:false)
 | 1--> 192.168.0.0/23 (target_pos:8:has_entry:false)
@@ -127,7 +128,7 @@ func TestPrefixTrieRemove(t *testing.T) {
 			trie := newPrefixTree(tc.version).(*prefixTrie)
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
-				err := trie.Insert(*network)
+				err := trie.Insert(NewBasicRangerEntry(*network))
 				assert.NoError(t, err)
 			}
 			for i, remove := range tc.removes {
@@ -135,17 +136,19 @@ func TestPrefixTrieRemove(t *testing.T) {
 				removed, err := trie.Remove(*network)
 				assert.NoError(t, err)
 				if str := tc.expectedRemoves[i]; str != "" {
-					_, expectedRemove, _ := net.ParseCIDR(tc.expectedRemoves[i])
-					assert.Equal(t, expectedRemove, removed)
+					_, ipnet, _ := net.ParseCIDR(str)
+					expected := NewBasicRangerEntry(*ipnet)
+					assert.Equal(t, expected, removed)
 				} else {
 					assert.Nil(t, removed)
 				}
 			}
 			walk := trie.walkDepth()
 			for _, network := range tc.expectedNetworksInDepthOrder {
-				_, expected, _ := net.ParseCIDR(network)
+				_, ipnet, _ := net.ParseCIDR(network)
+				expected := NewBasicRangerEntry(*ipnet)
 				actual := <-walk
-				assert.Equal(t, *expected, actual)
+				assert.Equal(t, expected, actual)
 			}
 
 			// Ensure no unexpected elements in trie.
@@ -192,7 +195,7 @@ func TestPrefixTrieContains(t *testing.T) {
 			trie := newPrefixTree(tc.version)
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
-				err := trie.Insert(*network)
+				err := trie.Insert(NewBasicRangerEntry(*network))
 				assert.NoError(t, err)
 			}
 			for _, expectedIPRange := range tc.expectedIPs {
@@ -245,17 +248,17 @@ func TestPrefixTrieContainingNetworks(t *testing.T) {
 			trie := newPrefixTree(tc.version)
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
-				err := trie.Insert(*network)
+				err := trie.Insert(NewBasicRangerEntry(*network))
 				assert.NoError(t, err)
 			}
-			expectedNetworks := []net.IPNet{}
+			expectedEntries := []RangerEntry{}
 			for _, network := range tc.networks {
 				_, net, _ := net.ParseCIDR(network)
-				expectedNetworks = append(expectedNetworks, *net)
+				expectedEntries = append(expectedEntries, NewBasicRangerEntry(*net))
 			}
 			networks, err := trie.ContainingNetworks(tc.ip)
 			assert.NoError(t, err)
-			assert.Equal(t, expectedNetworks, networks)
+			assert.Equal(t, expectedEntries, networks)
 		})
 	}
 }

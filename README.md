@@ -29,8 +29,15 @@ Inserts CIDR blocks.
 ```go
 _, network1, _ := net.ParseCIDR("192.168.1.0/24")
 _, network2, _ := net.ParseCIDR("128.168.1.0/24")
-ranger.Insert(*network1)
-ranger.Insert(*network2)
+ranger.Insert(NewBasicRangerEntry(*network1))
+ranger.Insert(NewBasicRangerEntry(*network2))
+```
+To attach any additional value(s) to the entry, simply create custom struct
+storing the desired value(s) that implements the RangerEntry interface:
+```go
+type RangerEntry interface {
+	Network() net.IPNet
+}
 ```
 The prefix trie can be visualized as:
 ```

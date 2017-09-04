@@ -15,41 +15,42 @@ import (
 // and used as the ground truth when running a wider range of 'random' tests on
 // other more sophisticated implementations.
 type bruteRanger struct {
-	ipV4Networks map[string]net.IPNet
-	ipV6Networks map[string]net.IPNet
+	ipV4Entries map[string]RangerEntry
+	ipV6Entries map[string]RangerEntry
 }
 
 // newBruteRanger returns a new Ranger.
 func newBruteRanger() Ranger {
 	return &bruteRanger{
-		ipV4Networks: make(map[string]net.IPNet),
-		ipV6Networks: make(map[string]net.IPNet),
+		ipV4Entries: make(map[string]RangerEntry),
+		ipV6Entries: make(map[string]RangerEntry),
 	}
 }
 
-// Insert inserts a network into ranger.
-func (b *bruteRanger) Insert(network net.IPNet) error {
+// Insert inserts a RangerEntry into ranger.
+func (b *bruteRanger) Insert(entry RangerEntry) error {
+	network := entry.Network()
 	key := network.String()
-	if _, found := b.ipV4Networks[key]; !found {
-		networks, err := b.getNetworksByVersion(network.IP)
+	if _, found := b.ipV4Entries[key]; !found {
+		entries, err := b.getEntriesByVersion(entry.Network().IP)
 		if err != nil {
 			return err
 		}
-		networks[key] = network
+		entries[key] = entry
 	}
 	return nil
 }
 
-// Remove removes a network from ranger.
-func (b *bruteRanger) Remove(network net.IPNet) (*net.IPNet, error) {
-	networks, err := b.getNetworksByVersion(network.IP)
+// Remove removes a RangerEntry identified by given network from ranger.
+func (b *bruteRanger) Remove(network net.IPNet) (RangerEntry, error) {
+	networks, err := b.getEntriesByVersion(network.IP)
 	if err != nil {
 		return nil, err
 	}
 	key := network.String()
 	if networkToDelete, found := networks[key]; found {
 		delete(networks, key)
-		return &networkToDelete, nil
+		return networkToDelete, nil
 	}
 	return nil, nil
 }
@@ -57,11 +58,12 @@ func (b *bruteRanger) Remove(network net.IPNet) (*net.IPNet, error) {
 // Contains returns bool indicating whether given ip is contained by any
 // network in ranger.
 func (b *bruteRanger) Contains(ip net.IP) (bool, error) {
-	networks, err := b.getNetworksByVersion(ip)
+	entries, err := b.getEntriesByVersion(ip)
 	if err != nil {
 		return false, err
 	}
-	for _, network := range networks {
+	for _, entry := range entries {
+		network := entry.Network()
 		if network.Contains(ip) {
 			return true, nil
 		}
@@ -69,27 +71,28 @@ func (b *bruteRanger) Contains(ip net.IP) (bool, error) {
 	return false, nil
 }
 
-// ContainingNetworks returns all networks given ip is a part of.
-func (b *bruteRanger) ContainingNetworks(ip net.IP) ([]net.IPNet, error) {
-	networks, err := b.getNetworksByVersion(ip)
+// ContainingNetworks returns all RangerEntry(s) that given ip contained in.
+func (b *bruteRanger) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
+	entries, err := b.getEntriesByVersion(ip)
 	if err != nil {
 		return nil, err
 	}
-	results := []net.IPNet{}
-	for _, network := range networks {
+	results := []RangerEntry{}
+	for _, entry := range entries {
+		network := entry.Network()
 		if network.Contains(ip) {
-			results = append(results, network)
+			results = append(results, entry)
 		}
 	}
 	return results, nil
 }
 
-func (b *bruteRanger) getNetworksByVersion(ip net.IP) (map[string]net.IPNet, error) {
+func (b *bruteRanger) getEntriesByVersion(ip net.IP) (map[string]RangerEntry, error) {
 	if ip.To4() != nil {
-		return b.ipV4Networks, nil
+		return b.ipV4Entries, nil
 	}
 	if ip.To16() != nil {
-		return b.ipV6Networks, nil
+		return b.ipV6Entries, nil
 	}
 	return nil, ErrInvalidNetworkInput
 }

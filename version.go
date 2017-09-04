@@ -20,15 +20,16 @@ func newVersionedRanger(factory rangerFactory) Ranger {
 	}
 }
 
-func (v *versionedRanger) Insert(network net.IPNet) error {
+func (v *versionedRanger) Insert(entry RangerEntry) error {
+	network := entry.Network()
 	ranger, err := v.getRangerForIP(network.IP)
 	if err != nil {
 		return err
 	}
-	return ranger.Insert(network)
+	return ranger.Insert(entry)
 }
 
-func (v *versionedRanger) Remove(network net.IPNet) (*net.IPNet, error) {
+func (v *versionedRanger) Remove(network net.IPNet) (RangerEntry, error) {
 	ranger, err := v.getRangerForIP(network.IP)
 	if err != nil {
 		return nil, err
@@ -44,7 +45,7 @@ func (v *versionedRanger) Contains(ip net.IP) (bool, error) {
 	return ranger.Contains(ip)
 }
 
-func (v *versionedRanger) ContainingNetworks(ip net.IP) ([]net.IPNet, error) {
+func (v *versionedRanger) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
 	ranger, err := v.getRangerForIP(ip)
 	if err != nil {
 		return nil, err

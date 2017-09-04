@@ -40,8 +40,8 @@ type prefixTrie struct {
 	numBitsSkipped uint
 	numBitsHandled uint
 
-	network  rnet.Network
-	hasEntry bool
+	network rnet.Network
+	entry   RangerEntry
 }
 
 // newPrefixTree creates a new prefixTrie.
@@ -69,20 +69,21 @@ func newPathprefixTrie(network rnet.Network, numBitsSkipped uint) *prefixTrie {
 	return path
 }
 
-func newEntryTrie(network rnet.Network) *prefixTrie {
+func newEntryTrie(network rnet.Network, entry RangerEntry) *prefixTrie {
 	ones, _ := network.IPNet.Mask.Size()
 	leaf := newPathprefixTrie(network, uint(ones))
-	leaf.hasEntry = true
+	leaf.entry = entry
 	return leaf
 }
 
-// Insert inserts the given cidr range into prefix trie.
-func (p *prefixTrie) Insert(network net.IPNet) error {
-	return p.insert(rnet.NewNetwork(network))
+// Insert inserts a RangerEntry into prefix trie.
+func (p *prefixTrie) Insert(entry RangerEntry) error {
+	network := entry.Network()
+	return p.insert(rnet.NewNetwork(network), entry)
 }
 
-// Remove removes network from trie.
-func (p *prefixTrie) Remove(network net.IPNet) (*net.IPNet, error) {
+// Remove removes RangerEntry identified by given network from trie.
+func (p *prefixTrie) Remove(network net.IPNet) (RangerEntry, error) {
 	return p.remove(rnet.NewNetwork(network))
 }
 
@@ -96,9 +97,9 @@ func (p *prefixTrie) Contains(ip net.IP) (bool, error) {
 	return p.contains(nn)
 }
 
-// ContainingNetworks returns the list of networks given ip is a part of in
-// ascending prefix order.
-func (p *prefixTrie) ContainingNetworks(ip net.IP) ([]net.IPNet, error) {
+// ContainingNetworks returns the list of RangerEntry(s) the given ip is
+// contained in in ascending prefix order.
+func (p *prefixTrie) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
 	nn := rnet.NewNetworkNumber(ip)
 	if nn == nil {
 		return nil, ErrInvalidNetworkNumberInput
@@ -119,14 +120,14 @@ func (p *prefixTrie) String() string {
 		children = append(children, childStr)
 	}
 	return fmt.Sprintf("%s (target_pos:%d:has_entry:%t)%s", p.network,
-		p.targetBitPosition(), p.hasEntry, strings.Join(children, ""))
+		p.targetBitPosition(), p.hasEntry(), strings.Join(children, ""))
 }
 
 func (p *prefixTrie) contains(number rnet.NetworkNumber) (bool, error) {
 	if !p.network.Contains(number) {
 		return false, nil
 	}
-	if p.hasEntry {
+	if p.hasEntry() {
 		return true, nil
 	}
 	bit, err := p.targetBitFromIP(number)
@@ -140,13 +141,13 @@ func (p *prefixTrie) contains(number rnet.NetworkNumber) (bool, error) {
 	return false, nil
 }
 
-func (p *prefixTrie) containingNetworks(number rnet.NetworkNumber) ([]net.IPNet, error) {
-	results := []net.IPNet{}
+func (p *prefixTrie) containingNetworks(number rnet.NetworkNumber) ([]RangerEntry, error) {
+	results := []RangerEntry{}
 	if !p.network.Contains(number) {
 		return results, nil
 	}
-	if p.hasEntry {
-		results = []net.IPNet{p.network.IPNet}
+	if p.hasEntry() {
+		results = []RangerEntry{p.entry}
 	}
 	bit, err := p.targetBitFromIP(number)
 	if err != nil {
@@ -159,15 +160,19 @@ func (p *prefixTrie) containingNetworks(number rnet.NetworkNumber) ([]net.IPNet,
 			return nil, err
 		}
 		if len(ranges) > 0 {
-			results = append(results, ranges...)
+			if len(results) > 0 {
+				results = append(results, ranges...)
+			} else {
+				results = ranges
+			}
 		}
 	}
 	return results, nil
 }
 
-func (p *prefixTrie) insert(network rnet.Network) error {
+func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) error {
 	if p.network.Equal(network) {
-		p.hasEntry = true
+		p.entry = entry
 		return nil
 	}
 	bit, err := p.targetBitFromIP(network.Number)
@@ -176,7 +181,7 @@ func (p *prefixTrie) insert(network rnet.Network) error {
 	}
 	child := p.children[bit]
 	if child == nil {
-		return p.insertPrefix(bit, newEntryTrie(network))
+		return p.insertPrefix(bit, newEntryTrie(network, entry))
 	}
 
 	lcb, err := network.LeastCommonBitPosition(child.network)
@@ -190,7 +195,7 @@ func (p *prefixTrie) insert(network rnet.Network) error {
 			return err
 		}
 	}
-	return child.insert(network)
+	return child.insert(network, entry)
 }
 
 func (p *prefixTrie) insertPrefix(bits uint32, prefix *prefixTrie) error {
@@ -207,10 +212,11 @@ func (p *prefixTrie) insertPrefix(bits uint32, prefix *prefixTrie) error {
 	return nil
 }
 
-func (p *prefixTrie) remove(network rnet.Network) (*net.IPNet, error) {
-	if p.hasEntry && p.network.Equal(network) {
+func (p *prefixTrie) remove(network rnet.Network) (RangerEntry, error) {
+	if p.hasEntry() && p.network.Equal(network) {
+		entry := p.entry
 		if p.childrenCount() > 1 {
-			p.hasEntry = false
+			p.entry = nil
 		} else {
 			// Has 0 or 1 child.
 			parentBits, err := p.parent.targetBitFromIP(network.Number)
@@ -226,7 +232,7 @@ func (p *prefixTrie) remove(network rnet.Network) (*net.IPNet, error) {
 			}
 			p.parent.children[parentBits] = skipChild
 		}
-		return &network.IPNet, nil
+		return entry, nil
 	}
 	bit, err := p.targetBitFromIP(network.Number)
 	if err != nil {
@@ -261,6 +267,10 @@ func (p *prefixTrie) targetBitFromIP(n rnet.NetworkNumber) (uint32, error) {
 	return n.Bit(p.targetBitPosition())
 }
 
+func (p *prefixTrie) hasEntry() bool {
+	return p.entry != nil
+}
+
 func (p *prefixTrie) level() int {
 	if p.parent == nil {
 		return 0
@@ -269,25 +279,25 @@ func (p *prefixTrie) level() int {
 }
 
 // walkDepth walks the trie in depth order, for unit testing.
-func (p *prefixTrie) walkDepth() <-chan net.IPNet {
-	networks := make(chan net.IPNet)
+func (p *prefixTrie) walkDepth() <-chan RangerEntry {
+	entries := make(chan RangerEntry)
 	go func() {
-		if p.hasEntry {
-			networks <- p.network.IPNet
+		if p.hasEntry() {
+			entries <- p.entry
 		}
-		subNetworks := []<-chan net.IPNet{}
+		childEntriesList := []<-chan RangerEntry{}
 		for _, trie := range p.children {
 			if trie == nil {
 				continue
 			}
-			subNetworks = append(subNetworks, trie.walkDepth())
+			childEntriesList = append(childEntriesList, trie.walkDepth())
 		}
-		for _, subNetwork := range subNetworks {
-			for network := range subNetwork {
-				networks <- network
+		for _, childEntries := range childEntriesList {
+			for entry := range childEntries {
+				entries <- entry
 			}
 		}
-		close(networks)
+		close(entries)
 	}()
-	return networks
+	return entries
 }
