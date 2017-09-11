@@ -188,7 +188,7 @@ func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) error {
 	if err != nil {
 		return err
 	}
-	if lcb-1 > child.targetBitPosition() {
+	if int(lcb) > child.targetBitPosition()+1 {
 		child = newPathprefixTrie(network, p.totalNumberOfBits()-lcb)
 		err := p.insertPrefix(bit, child)
 		if err != nil {
@@ -259,12 +259,14 @@ func (p *prefixTrie) totalNumberOfBits() uint {
 	return rnet.BitsPerUint32 * uint(len(p.network.Number))
 }
 
-func (p *prefixTrie) targetBitPosition() uint {
-	return p.totalNumberOfBits() - p.numBitsSkipped - 1
+func (p *prefixTrie) targetBitPosition() int {
+	return int(p.totalNumberOfBits()-p.numBitsSkipped) - 1
 }
 
 func (p *prefixTrie) targetBitFromIP(n rnet.NetworkNumber) (uint32, error) {
-	return n.Bit(p.targetBitPosition())
+	// This is a safe uint boxing of int since we should never attempt to get
+	// target bit at a negative position.
+	return n.Bit(uint(p.targetBitPosition()))
 }
 
 func (p *prefixTrie) hasEntry() bool {

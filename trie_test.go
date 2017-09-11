@@ -18,9 +18,27 @@ func TestPrefixTrieInsert(t *testing.T) {
 		{rnet.IPv4, []string{"192.168.0.1/24"}, []string{"192.168.0.1/24"}, "basic insert"},
 		{
 			rnet.IPv4,
+			[]string{"1.2.3.4/32", "1.2.3.5/32"},
+			[]string{"1.2.3.4/32", "1.2.3.5/32"},
+			"single ip IPv4 network insert",
+		},
+		{
+			rnet.IPv6,
+			[]string{"0::1/128", "0::2/128"},
+			[]string{"0::1/128", "0::2/128"},
+			"single ip IPv6 network insert",
+		},
+		{
+			rnet.IPv4,
 			[]string{"192.168.0.1/16", "192.168.0.1/24"},
 			[]string{"192.168.0.1/16", "192.168.0.1/24"},
 			"in order insert",
+		},
+		{
+			rnet.IPv4,
+			[]string{"192.168.0.1/32", "192.168.0.1/32"},
+			[]string{"192.168.0.1/32"},
+			"duplicate network insert",
 		},
 		{
 			rnet.IPv4,
@@ -96,6 +114,22 @@ func TestPrefixTrieRemove(t *testing.T) {
 			[]string{"192.168.0.1/24"},
 			[]string{},
 			"basic remove",
+		},
+		{
+			rnet.IPv4,
+			[]string{"1.2.3.4/32", "1.2.3.5/32"},
+			[]string{"1.2.3.5/32"},
+			[]string{"1.2.3.5/32"},
+			[]string{"1.2.3.4/32"},
+			"single ip IPv4 network remove",
+		},
+		{
+			rnet.IPv4,
+			[]string{"0::1/128", "0::2/128"},
+			[]string{"0::2/128"},
+			[]string{"0::2/128"},
+			[]string{"0::1/128"},
+			"single ip IPv6 network remove",
 		},
 		{
 			rnet.IPv4,
