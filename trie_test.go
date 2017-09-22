@@ -193,6 +193,52 @@ func TestPrefixTrieRemove(t *testing.T) {
 	}
 }
 
+func TestToReplicateIssue(t *testing.T) {
+	cases := []struct {
+		version  rnet.IPVersion
+		inserts  []string
+		ip       net.IP
+		networks []string
+		name     string
+	}{
+		{
+			rnet.IPv4,
+			[]string{"192.168.0.1/32"},
+			net.ParseIP("192.168.0.1"),
+			[]string{"192.168.0.1/32"},
+			"basic containing network for /32 mask",
+		},
+		{
+			rnet.IPv6,
+			[]string{"a::1/128"},
+			net.ParseIP("a::1"),
+			[]string{"a::1/128"},
+			"basic containing network for /128 mask",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			trie := newPrefixTree(tc.version)
+			for _, insert := range tc.inserts {
+				_, network, _ := net.ParseCIDR(insert)
+				err := trie.Insert(NewBasicRangerEntry(*network))
+				assert.NoError(t, err)
+			}
+			expectedEntries := []RangerEntry{}
+			for _, network := range tc.networks {
+				_, net, _ := net.ParseCIDR(network)
+				expectedEntries = append(expectedEntries, NewBasicRangerEntry(*net))
+			}
+			contains, err := trie.Contains(tc.ip)
+			assert.NoError(t, err)
+			assert.True(t, contains)
+			networks, err := trie.ContainingNetworks(tc.ip)
+			assert.NoError(t, err)
+			assert.Equal(t, expectedEntries, networks)
+		})
+	}
+}
+
 type expectedIPRange struct {
 	start net.IP
 	end   net.IP

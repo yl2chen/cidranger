@@ -149,6 +149,9 @@ func (p *prefixTrie) containingNetworks(number rnet.NetworkNumber) ([]RangerEntr
 	if p.hasEntry() {
 		results = []RangerEntry{p.entry}
 	}
+	if p.targetBitPosition() < 0 {
+		return results, nil
+	}
 	bit, err := p.targetBitFromIP(number)
 	if err != nil {
 		return nil, err
