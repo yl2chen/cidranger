@@ -130,6 +130,9 @@ func (p *prefixTrie) contains(number rnet.NetworkNumber) (bool, error) {
 	if p.hasEntry() {
 		return true, nil
 	}
+	if p.targetBitPosition() < 0 {
+		return false, nil
+	}
 	bit, err := p.targetBitFromIP(number)
 	if err != nil {
 		return false, err
