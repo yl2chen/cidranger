@@ -98,7 +98,11 @@ func (b *bruteRanger) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) 
 	var results []RangerEntry
 	for _, entry := range entries {
 		entrynetwork := entry.Network()
-		if network.Contains(entrynetwork.IP) {
+
+		searchMaskSize, _ := network.Mask.Size()
+		entryMaskSize, _ := entrynetwork.Mask.Size()
+
+		if network.Contains(entrynetwork.IP) && searchMaskSize <= entryMaskSize {
 			results = append(results, entry)
 		}
 	}

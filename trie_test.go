@@ -404,6 +404,15 @@ var coveredNetworkTests = []coveredNetworkTest{
 		[]string{"192.168.0.0/24", "192.168.1.1/32"},
 		"path not taken",
 	},
+	{
+		rnet.IPv4,
+		[]string{
+			"192.168.0.0/15",
+		},
+		"192.168.0.0/16",
+		nil,
+		"only masks different",
+	},
 }
 
 func TestPrefixTrieCoveredNetworks(t *testing.T) {

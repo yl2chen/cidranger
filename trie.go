@@ -186,7 +186,7 @@ func (p *prefixTrie) containingNetworks(number rnet.NetworkNumber) ([]RangerEntr
 
 func (p *prefixTrie) coveredNetworks(network rnet.Network) ([]RangerEntry, error) {
 	var results []RangerEntry
-	if p.hasEntry() && network.Contains(p.network.Number) {
+	if p.hasEntry() && network.Covers(p.network) {
 		results = []RangerEntry{p.entry}
 	}
 	if p.targetBitPosition() < 0 {

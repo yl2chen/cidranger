@@ -208,6 +208,13 @@ func (n Network) Contains(nn NetworkNumber) bool {
 	return true
 }
 
+// Contains returns true if Network covers o, false otherwise
+func (n Network) Covers(o Network) bool {
+	nMaskSize, _ := n.IPNet.Mask.Size()
+	oMaskSize, _ := o.IPNet.Mask.Size()
+	return n.Contains(o.Number) && nMaskSize <= oMaskSize
+}
+
 // LeastCommonBitPosition returns the smallest position of the preceding common
 // bits of the 2 networks, and returns an error ErrNoGreatestCommonBit
 // if the two network number diverges from the first bit.
