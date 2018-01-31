@@ -424,6 +424,8 @@ func TestNetworkCovers(t *testing.T) {
 		{"10.0.0.0/16", "10.0.0.0/15", false, "prefix false"},
 		{"10.0.0.0/15", "10.0.0.0/16", true, "prefix true"},
 		{"10.0.0.0/15", "10.0.0.0/15", true, "same"},
+		{"10::0/15", "10.0.0.0/15", false, "ip version mismatch"},
+		{"10::0/15", "10::0/16", true, "ipv6"},
 	}
 
 	for _, tc := range cases {

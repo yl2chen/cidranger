@@ -210,6 +210,9 @@ func (n Network) Contains(nn NetworkNumber) bool {
 
 // Contains returns true if Network covers o, false otherwise
 func (n Network) Covers(o Network) bool {
+	if len(n.Number) != len(o.Number) {
+		return false
+	}
 	nMaskSize, _ := n.IPNet.Mask.Size()
 	oMaskSize, _ := o.IPNet.Mask.Size()
 	return n.Contains(o.Number) && nMaskSize <= oMaskSize
