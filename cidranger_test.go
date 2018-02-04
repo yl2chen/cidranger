@@ -26,6 +26,10 @@ func TestContainingNetworksAgaistBaseIPv4(t *testing.T) {
 	testContainingNetworksAgainstBase(t, 100000, randIPv4Gen)
 }
 
+func TestCoveredNetworksAgainstBaseIPv4(t *testing.T) {
+	testCoversNetworksAgainstBase(t, 100000, randomIPNetGenFactory(ipV4AWSRangesIPNets))
+}
+
 // IPv6 spans an extremely large address space (2^128), randomly generated IPs
 // will often fall outside of the test ranges (AWS public CIDR blocks), so it
 // it more meaningful for testing to run from a curated list of IPv6 IPs.
@@ -35,6 +39,10 @@ func TestContainsAgaistBaseIPv6(t *testing.T) {
 
 func TestContainingNetworksAgaistBaseIPv6(t *testing.T) {
 	testContainingNetworksAgainstBase(t, 100000, curatedAWSIPv6Gen)
+}
+
+func TestCoveredNetworksAgainstBaseIPv6(t *testing.T) {
+	testCoversNetworksAgainstBase(t, 100000, randomIPNetGenFactory(ipV6AWSRangesIPNets))
 }
 
 func testContainsAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
@@ -71,6 +79,29 @@ func testContainingNetworksAgainstBase(t *testing.T, iterations int, ipGen ipGen
 		assert.NoError(t, err)
 		for _, ranger := range rangers {
 			actual, err := ranger.ContainingNetworks(nn.ToIP())
+			assert.NoError(t, err)
+			assert.Equal(t, len(expected), len(actual))
+			for _, network := range actual {
+				assert.Contains(t, expected, network)
+			}
+		}
+	}
+}
+
+func testCoversNetworksAgainstBase(t *testing.T, iterations int, netGen networkGenerator) {
+	rangers := []Ranger{NewPCTrieRanger()}
+	baseRanger := newBruteRanger()
+	for _, ranger := range rangers {
+		configureRangerWithAWSRanges(t, ranger)
+	}
+	configureRangerWithAWSRanges(t, baseRanger)
+
+	for i := 0; i < iterations; i++ {
+		network := netGen()
+		expected, err := baseRanger.CoveredNetworks(network.IPNet)
+		assert.NoError(t, err)
+		for _, ranger := range rangers {
+			actual, err := ranger.CoveredNetworks(network.IPNet)
 			assert.NoError(t, err)
 			assert.Equal(t, len(expected), len(actual))
 			for _, network := range actual {
@@ -183,6 +214,14 @@ func curatedAWSIPv6Gen() rnet.NetworkNumber {
 	return nn
 }
 
+type networkGenerator func() rnet.Network
+
+func randomIPNetGenFactory(pool []*net.IPNet) networkGenerator {
+	return func() rnet.Network {
+		return rnet.NewNetwork(*pool[rand.Intn(len(pool))])
+	}
+}
+
 type AWSRanges struct {
 	Prefixes     []Prefix     `json:"prefixes"`
 	IPv6Prefixes []IPv6Prefix `json:"ipv6_prefixes"`
@@ -201,6 +240,7 @@ type IPv6Prefix struct {
 }
 
 var awsRanges *AWSRanges
+var ipV4AWSRangesIPNets []*net.IPNet
 var ipV6AWSRangesIPNets []*net.IPNet
 
 func loadAWSRanges() *AWSRanges {
@@ -234,6 +274,10 @@ func init() {
 	for _, prefix := range awsRanges.IPv6Prefixes {
 		_, network, _ := net.ParseCIDR(prefix.IPPrefix)
 		ipV6AWSRangesIPNets = append(ipV6AWSRangesIPNets, network)
+	}
+	for _, prefix := range awsRanges.Prefixes {
+		_, network, _ := net.ParseCIDR(prefix.IPPrefix)
+		ipV4AWSRangesIPNets = append(ipV4AWSRangesIPNets, network)
 	}
 	rand.Seed(time.Now().Unix())
 }

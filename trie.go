@@ -186,24 +186,18 @@ func (p *prefixTrie) containingNetworks(number rnet.NetworkNumber) ([]RangerEntr
 
 func (p *prefixTrie) coveredNetworks(network rnet.Network) ([]RangerEntry, error) {
 	var results []RangerEntry
-	if p.hasEntry() && network.Covers(p.network) {
-		results = []RangerEntry{p.entry}
-	}
-	if p.targetBitPosition() < 0 {
-		return results, nil
-	}
-
-	masked := network.Masked(int(p.numBitsSkipped))
-	if !masked.Equal(p.network) {
-		return results, nil
-	}
-	for _, child := range p.children {
+	if network.Covers(p.network) {
+		for entry := range p.walkDepth() {
+			results = append(results, entry)
+		}
+	} else if p.targetBitPosition() >= 0 {
+		bit, err := p.targetBitFromIP(network.Number)
+		if err != nil {
+			return results, err
+		}
+		child := p.children[bit]
 		if child != nil {
-			ranges, err := child.coveredNetworks(network)
-			if err != nil {
-				return nil, err
-			}
-			results = append(results, ranges...)
+			return child.coveredNetworks(network)
 		}
 	}
 	return results, nil
