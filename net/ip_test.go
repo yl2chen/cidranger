@@ -313,6 +313,33 @@ func TestNetworkContainsVersionMismatch(t *testing.T) {
 	}
 }
 
+func TestNetworkCovers(t *testing.T) {
+	cases := []struct {
+		network string
+		covers  string
+		result  bool
+		name    string
+	}{
+		{"10.0.0.0/24", "10.0.0.1/25", true, "contains"},
+		{"10.0.0.0/24", "11.0.0.1/25", false, "not contains"},
+		{"10.0.0.0/16", "10.0.0.0/15", false, "prefix false"},
+		{"10.0.0.0/15", "10.0.0.0/16", true, "prefix true"},
+		{"10.0.0.0/15", "10.0.0.0/15", true, "same"},
+		{"10::0/15", "10.0.0.0/15", false, "ip version mismatch"},
+		{"10::0/15", "10::0/16", true, "ipv6"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, n, _ := net.ParseCIDR(tc.network)
+			network := NewNetwork(*n)
+			_, n, _ = net.ParseCIDR(tc.covers)
+			covers := NewNetwork(*n)
+			assert.Equal(t, tc.result, network.Covers(covers))
+		})
+	}
+}
+
 func TestNetworkLeastCommonBitPosition(t *testing.T) {
 	cases := []struct {
 		cidr1       string
@@ -408,33 +435,6 @@ func TestPreviousIP(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, net.ParseIP(tc.next), PreviousIP(net.ParseIP(tc.ip)))
-		})
-	}
-}
-
-func TestNetworkCovers(t *testing.T) {
-	cases := []struct {
-		network string
-		covers  string
-		result  bool
-		name    string
-	}{
-		{"10.0.0.0/24", "10.0.0.1/25", true, "contains"},
-		{"10.0.0.0/24", "11.0.0.1/25", false, "not contains"},
-		{"10.0.0.0/16", "10.0.0.0/15", false, "prefix false"},
-		{"10.0.0.0/15", "10.0.0.0/16", true, "prefix true"},
-		{"10.0.0.0/15", "10.0.0.0/15", true, "same"},
-		{"10::0/15", "10.0.0.0/15", false, "ip version mismatch"},
-		{"10::0/15", "10::0/16", true, "ipv6"},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, n, _ := net.ParseCIDR(tc.network)
-			network := NewNetwork(*n)
-			_, n, _ = net.ParseCIDR(tc.covers)
-			covers := NewNetwork(*n)
-			assert.Equal(t, tc.result, network.Covers(covers))
 		})
 	}
 }
