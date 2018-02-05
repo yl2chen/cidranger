@@ -2,6 +2,7 @@ package cidranger
 
 import (
 	"net"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -141,6 +142,36 @@ func TestContainingNetworks(t *testing.T) {
 					assert.Contains(t, networks, network)
 				}
 			}
+		})
+	}
+}
+
+func TestCoveredNetworks(t *testing.T) {
+	for _, tc := range coveredNetworkTests {
+		t.Run(tc.name, func(t *testing.T) {
+			ranger := newBruteRanger()
+			for _, insert := range tc.inserts {
+				_, network, _ := net.ParseCIDR(insert)
+				err := ranger.Insert(NewBasicRangerEntry(*network))
+				assert.NoError(t, err)
+			}
+			var expectedEntries []string
+			for _, network := range tc.networks {
+				expectedEntries = append(expectedEntries, network)
+			}
+			sort.Strings(expectedEntries)
+			_, snet, _ := net.ParseCIDR(tc.search)
+			networks, err := ranger.CoveredNetworks(*snet)
+			assert.NoError(t, err)
+
+			var results []string
+			for _, result := range networks {
+				net := result.Network()
+				results = append(results, net.String())
+			}
+			sort.Strings(results)
+
+			assert.Equal(t, expectedEntries, results)
 		})
 	}
 }

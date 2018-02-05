@@ -2,6 +2,8 @@ package cidranger
 
 import (
 	"net"
+
+	rnet "github.com/yl2chen/cidranger/net"
 )
 
 // bruteRanger is a brute force implementation of Ranger.  Insertion and
@@ -81,6 +83,25 @@ func (b *bruteRanger) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
 	for _, entry := range entries {
 		network := entry.Network()
 		if network.Contains(ip) {
+			results = append(results, entry)
+		}
+	}
+	return results, nil
+}
+
+// CoveredNetworks returns the list of RangerEntry(s) the given ipnet
+// covers.  That is, the networks that are completely subsumed by the
+// specified network.
+func (b *bruteRanger) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) {
+	entries, err := b.getEntriesByVersion(network.IP)
+	if err != nil {
+		return nil, err
+	}
+	var results []RangerEntry
+	testNetwork := rnet.NewNetwork(network)
+	for _, entry := range entries {
+		entryNetwork := rnet.NewNetwork(entry.Network())
+		if testNetwork.Covers(entryNetwork) {
 			results = append(results, entry)
 		}
 	}

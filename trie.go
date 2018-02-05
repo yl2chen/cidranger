@@ -107,6 +107,14 @@ func (p *prefixTrie) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
 	return p.containingNetworks(nn)
 }
 
+// CoveredNetworks returns the list of RangerEntry(s) the given ipnet
+// covers.  That is, the networks that are completely subsumed by the
+// specified network.
+func (p *prefixTrie) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) {
+	net := rnet.NewNetwork(network)
+	return p.coveredNetworks(net)
+}
+
 // String returns string representation of trie, mainly for visualization and
 // debugging.
 func (p *prefixTrie) String() string {
@@ -171,6 +179,25 @@ func (p *prefixTrie) containingNetworks(number rnet.NetworkNumber) ([]RangerEntr
 			} else {
 				results = ranges
 			}
+		}
+	}
+	return results, nil
+}
+
+func (p *prefixTrie) coveredNetworks(network rnet.Network) ([]RangerEntry, error) {
+	var results []RangerEntry
+	if network.Covers(p.network) {
+		for entry := range p.walkDepth() {
+			results = append(results, entry)
+		}
+	} else if p.targetBitPosition() >= 0 {
+		bit, err := p.targetBitFromIP(network.Number)
+		if err != nil {
+			return results, err
+		}
+		child := p.children[bit]
+		if child != nil {
+			return child.coveredNetworks(network)
 		}
 	}
 	return results, nil
