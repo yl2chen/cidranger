@@ -208,6 +208,7 @@ func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) error {
 		p.entry = entry
 		return nil
 	}
+
 	bit, err := p.targetBitFromIP(network.Number)
 	if err != nil {
 		return err

@@ -236,7 +236,17 @@ func (n Network) LeastCommonBitPosition(n1 Network) (uint, error) {
 
 // Equal is the equality test for 2 networks.
 func (n Network) Equal(n1 Network) bool {
-	return n.String() == n1.String()
+	if len(n.Number) != len(n1.Number) || len(n.Mask) != len(n1.Mask) {
+		return false
+	}
+
+	for i := range n.Number {
+		if n.Mask[i] != n1.Mask[i] || (n.Number[i]&n.Mask[i]) != (n1.Number[i]&n1.Mask[i]) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (n Network) String() string {

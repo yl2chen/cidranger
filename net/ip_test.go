@@ -1,6 +1,7 @@
 package net
 
 import (
+	"fmt"
 	"math"
 	"net"
 	"testing"
@@ -260,12 +261,18 @@ func TestNetworkEqual(t *testing.T) {
 		{"192.128.0.0/24", "192.128.0.0/23", false, "IPv4 not equals"},
 		{"8000::/24", "8000::/24", true, "IPv6 equals"},
 		{"8000::/24", "8000::/23", false, "IPv6 not equals"},
+		{"82.253.252.7/14", "82.252.0.0/14", true, "overlap equals"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			_, ipNet1, _ := net.ParseCIDR(tc.n1)
 			_, ipNet2, _ := net.ParseCIDR(tc.n2)
-			assert.Equal(t, tc.equal, NewNetwork(*ipNet1).Equal(NewNetwork(*ipNet2)))
+			op := "="
+			if !tc.equal {
+				op = "!="
+			}
+			assert.Equal(t, tc.equal, NewNetwork(*ipNet1).Equal(NewNetwork(*ipNet2)),
+				fmt.Sprintf("%s %s %s", tc.n1, op, tc.n2))
 		})
 	}
 }
