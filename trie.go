@@ -248,22 +248,11 @@ func (p *prefixTrie) insertPrefix(bits uint32, prefix *prefixTrie) error {
 func (p *prefixTrie) remove(network rnet.Network) (RangerEntry, error) {
 	if p.hasEntry() && p.network.Equal(network) {
 		entry := p.entry
-		if p.childrenCount() > 1 {
-			p.entry = nil
-		} else {
-			// Has 0 or 1 child.
-			parentBits, err := p.parent.targetBitFromIP(network.Number)
-			if err != nil {
-				return nil, err
-			}
-			var skipChild *prefixTrie
-			for _, child := range p.children {
-				if child != nil {
-					skipChild = child
-					break
-				}
-			}
-			p.parent.children[parentBits] = skipChild
+		p.entry = nil
+
+		err := p.compressPathIfPossible()
+		if err != nil {
+			return nil, err
 		}
 		return entry, nil
 	}
@@ -276,6 +265,44 @@ func (p *prefixTrie) remove(network rnet.Network) (RangerEntry, error) {
 		return child.remove(network)
 	}
 	return nil, nil
+}
+
+func (p *prefixTrie) qualifiesForPathCompression() bool {
+	// Current prefix trie can be path compressed if it meets all following.
+	//		1. records no CIDR entry
+	//		2. has single or no child
+	//		3. is not root trie
+	return !p.hasEntry() && p.childrenCount() <= 1 && p.parent != nil;
+}
+
+func (p *prefixTrie) compressPathIfPossible() error {
+	if !p.qualifiesForPathCompression() {
+		// Does not qualify to be compressed
+		return nil
+	}
+
+	// Find lone child.
+	var loneChild *prefixTrie
+	for _, child := range p.children {
+		if child != nil {
+			loneChild = child
+			break
+		}
+	}
+
+	// Find root of currnt single child lineage.
+	parent := p.parent
+	for ; parent.qualifiesForPathCompression(); parent = parent.parent {
+	}
+	parentBit, err := parent.targetBitFromIP(p.network.Number)
+	if err != nil {
+		return err
+	}
+	parent.children[parentBit] = loneChild
+
+	// Attempts to furthur apply path compression at current lineage parent, in case current lineage
+	// compressed into parent.
+	return parent.compressPathIfPossible()
 }
 
 func (p *prefixTrie) childrenCount() int {
