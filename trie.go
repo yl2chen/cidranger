@@ -42,6 +42,8 @@ type prefixTrie struct {
 
 	network rnet.Network
 	entry   RangerEntry
+
+	size int // This is only maintained in the root trie.
 }
 
 // newPrefixTree creates a new prefixTrie.
@@ -79,12 +81,20 @@ func newEntryTrie(network rnet.Network, entry RangerEntry) *prefixTrie {
 // Insert inserts a RangerEntry into prefix trie.
 func (p *prefixTrie) Insert(entry RangerEntry) error {
 	network := entry.Network()
-	return p.insert(rnet.NewNetwork(network), entry)
+	sizeIncreased, err := p.insert(rnet.NewNetwork(network), entry)
+	if sizeIncreased {
+		p.size++
+	}
+	return err
 }
 
 // Remove removes RangerEntry identified by given network from trie.
 func (p *prefixTrie) Remove(network net.IPNet) (RangerEntry, error) {
-	return p.remove(rnet.NewNetwork(network))
+	entry, err := p.remove(rnet.NewNetwork(network))
+	if entry != nil {
+		p.size--
+	}
+	return entry, err
 }
 
 // Contains returns boolean indicating whether given ip is contained in any
@@ -113,6 +123,11 @@ func (p *prefixTrie) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
 func (p *prefixTrie) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) {
 	net := rnet.NewNetwork(network)
 	return p.coveredNetworks(net)
+}
+
+// Len returns number of networks in ranger.
+func (p *prefixTrie) Len() int {
+	return p.size
 }
 
 // String returns string representation of trie, mainly for visualization and
@@ -203,22 +218,23 @@ func (p *prefixTrie) coveredNetworks(network rnet.Network) ([]RangerEntry, error
 	return results, nil
 }
 
-func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) error {
+func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) (bool, error) {
 	if p.network.Equal(network) {
+		sizeIncreased := p.entry == nil
 		p.entry = entry
-		return nil
+		return sizeIncreased, nil
 	}
 
 	bit, err := p.targetBitFromIP(network.Number)
 	if err != nil {
-		return err
+		return false, err
 	}
 	existingChild := p.children[bit]
 
 	// No existing child, insert new leaf trie.
 	if existingChild == nil {
 		p.appendTrie(bit, newEntryTrie(network, entry))
-		return nil
+		return true, nil
 	}
 
 	// Check whether it is necessary to insert additional path prefix between current trie and existing child,
@@ -229,7 +245,7 @@ func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) error {
 		pathPrefix := newPathprefixTrie(network, p.totalNumberOfBits()-lcb)
 		err := p.insertPrefix(bit, pathPrefix, existingChild)
 		if err != nil {
-			return err
+			return false, err
 		}
 		// Update new child
 		existingChild = pathPrefix

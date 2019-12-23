@@ -108,6 +108,11 @@ func (b *bruteRanger) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) 
 	return results, nil
 }
 
+// Len returns number of networks in ranger.
+func (b *bruteRanger) Len() int {
+	return len(b.ipV4Entries) + len(b.ipV6Entries)
+}
+
 func (b *bruteRanger) getEntriesByVersion(ip net.IP) (map[string]RangerEntry, error) {
 	if ip.To4() != nil {
 		return b.ipV4Entries, nil
