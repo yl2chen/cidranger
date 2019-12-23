@@ -43,7 +43,7 @@ type prefixTrie struct {
 	network rnet.Network
 	entry   RangerEntry
 
-	size int // This is not kept track off at the sub trie level.
+	size int // This is only maintained in the root trie.
 }
 
 // newPrefixTree creates a new prefixTrie.
