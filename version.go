@@ -61,6 +61,11 @@ func (v *versionedRanger) CoveredNetworks(network net.IPNet) ([]RangerEntry, err
 	return ranger.CoveredNetworks(network)
 }
 
+// Len returns number of networks in ranger.
+func (v *versionedRanger) Len() int {
+	return v.ipV4Ranger.Len() + v.ipV6Ranger.Len()
+}
+
 func (v *versionedRanger) getRangerForIP(ip net.IP) (Ranger, error) {
 	if ip.To4() != nil {
 		return v.ipV4Ranger, nil

@@ -71,6 +71,9 @@ func TestPrefixTrieInsert(t *testing.T) {
 				err := trie.Insert(NewBasicRangerEntry(*network))
 				assert.NoError(t, err)
 			}
+
+			assert.Equal(t, len(tc.expectedNetworksInDepthOrder), trie.Len(), "trie size should match")
+
 			walk := trie.walkDepth()
 			for _, network := range tc.expectedNetworksInDepthOrder {
 				_, ipnet, _ := net.ParseCIDR(network)
@@ -198,6 +201,9 @@ func TestPrefixTrieRemove(t *testing.T) {
 					assert.Nil(t, removed)
 				}
 			}
+
+			assert.Equal(t, len(tc.expectedNetworksInDepthOrder), trie.Len(), "trie size should match after revmoval")
+
 			walk := trie.walkDepth()
 			for _, network := range tc.expectedNetworksInDepthOrder {
 				_, ipnet, _ := net.ParseCIDR(network)
@@ -466,7 +472,7 @@ func TestTrieMemUsage(t *testing.T) {
 		t.Skip("Skipping memory test in `-short` mode")
 	}
 	numIPs := 100000
-	runs   := 10
+	runs := 10
 
 	// Avg heap allocation over all runs should not be more than the heap allocation of first run multiplied
 	// by threshold, picking 1% as sane number for detecting memory leak.
@@ -476,11 +482,15 @@ func TestTrieMemUsage(t *testing.T) {
 
 	var baseLineHeap, totalHeapAllocOverRuns uint64
 	for i := 0; i < runs; i++ {
+		t.Logf("Executing Run %d of %d", i+1, runs)
 
 		// Insert networks.
 		for n := 0; n < numIPs; n++ {
 			trie.Insert(NewBasicRangerEntry(GenLeafIPNet(GenIPV4())))
 		}
+		t.Logf("Inserted All (%d networks)", trie.Len())
+		assert.Less(t, 0, trie.Len(), "Len should > 0")
+		assert.LessOrEqualf(t, trie.Len(), numIPs, "Len should <= %d", numIPs)
 
 		// Remove networks.
 		_, all, _ := net.ParseCIDR("0.0.0.0/0")
@@ -488,6 +498,8 @@ func TestTrieMemUsage(t *testing.T) {
 		for i := 0; i < len(ll); i++ {
 			trie.Remove(ll[i].Network())
 		}
+		t.Logf("Removed All (%d networks)", len(ll))
+		assert.Equal(t, 0, trie.Len(), "Len after removal should == 0")
 
 		// Perform GC
 		runtime.GC()
@@ -495,7 +507,7 @@ func TestTrieMemUsage(t *testing.T) {
 		// Get HeapAlloc stats.
 		heapAlloc := GetHeapAllocation()
 		totalHeapAllocOverRuns += heapAlloc
-		if i ==0 {
+		if i == 0 {
 			baseLineHeap = heapAlloc
 		}
 	}
