@@ -7,5 +7,5 @@ go:
 before_install:
   - travis_retry go get github.com/mattn/goveralls
 script:
-  - travis_retry go test -v ./...
-  - travis_retry $HOME/gopath/bin/goveralls -service=travis-ci
+  - go test -v -covermode=count -coverprofile=coverage.out ./...
+  - travis_retry $HOME/gopath/bin/goveralls -coverprofile=coverage.out -service=travis-ci
