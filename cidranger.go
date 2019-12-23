@@ -30,6 +30,12 @@ To get a list of CIDR blocks in constructed ranger that contains IP:
 			// returns []RangerEntry, error
 			entries, err := ranger.ContainingNetworks(net.ParseIP("192.168.0.1"))
 
+To get a list of all IPv4/IPv6 rangers respectively:
+
+			// returns []RangerEntry, error
+			entries, err := ranger.CoveredNetworks(*AllIPv4)
+			entries, err := ranger.CoveredNetworks(*AllIPv6)
+
 */
 package cidranger
 
@@ -43,6 +49,17 @@ var ErrInvalidNetworkInput = fmt.Errorf("Invalid network input")
 
 // ErrInvalidNetworkNumberInput is returned upon invalid network input.
 var ErrInvalidNetworkNumberInput = fmt.Errorf("Invalid network number input")
+
+// AllIPv4 is a IPv4 CIDR that contains all networks
+var AllIPv4 = parseCIDRUnsafe("0.0.0.0/0")
+
+// AllIPv6 is a IPv6 CIDR that contains all networks
+var AllIPv6 = parseCIDRUnsafe("0::0/0")
+
+func parseCIDRUnsafe(s string) *net.IPNet {
+	_, cidr, _ := net.ParseCIDR(s)
+	return cidr
+}
 
 // RangerEntry is an interface for insertable entry into a Ranger.
 type RangerEntry interface {

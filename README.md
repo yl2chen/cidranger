@@ -55,6 +55,11 @@ To get all the networks given is contained in,
 ```go
 containingNetworks, err = ranger.ContainingNetworks(net.ParseIP("128.168.1.0"))
 ```
+To get all networks in ranger,
+```go
+entries, err := ranger.CoveredNetworks(*AllIPv4) // for IPv4
+entries, err := ranger.CoveredNetworks(*AllIPv6) // for IPv6
+```
 
 ## Benchmark
 Compare hit/miss case for IPv4/IPv6 using PC trie vs brute force implementation, Ranger is initialized with published AWS ip ranges (889 IPv4 CIDR blocks and 360 IPv6)
