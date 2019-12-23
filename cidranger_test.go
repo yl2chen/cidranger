@@ -46,6 +46,9 @@ func TestCoveredNetworksAgainstBaseIPv6(t *testing.T) {
 }
 
 func testContainsAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
+	if testing.Short() {
+		t.Skip("Skipping memory test in `-short` mode")
+	}
 	rangers := []Ranger{NewPCTrieRanger()}
 	baseRanger := newBruteRanger()
 	for _, ranger := range rangers {
@@ -66,6 +69,9 @@ func testContainsAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
 }
 
 func testContainingNetworksAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
+	if testing.Short() {
+		t.Skip("Skipping memory test in `-short` mode")
+	}
 	rangers := []Ranger{NewPCTrieRanger()}
 	baseRanger := newBruteRanger()
 	for _, ranger := range rangers {
@@ -89,6 +95,9 @@ func testContainingNetworksAgainstBase(t *testing.T, iterations int, ipGen ipGen
 }
 
 func testCoversNetworksAgainstBase(t *testing.T, iterations int, netGen networkGenerator) {
+	if testing.Short() {
+		t.Skip("Skipping memory test in `-short` mode")
+	}
 	rangers := []Ranger{NewPCTrieRanger()}
 	baseRanger := newBruteRanger()
 	for _, ranger := range rangers {
