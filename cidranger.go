@@ -33,8 +33,8 @@ To get a list of CIDR blocks in constructed ranger that contains IP:
 To get a list of all IPv4/IPv6 rangers respectively:
 
 			// returns []RangerEntry, error
-			entries, err := ranger.CoveredNetworks(AllIPv4)
-			entries, err := ranger.CoveredNetworks(AllIPv6)
+			entries, err := ranger.CoveredNetworks(*AllIPv4)
+			entries, err := ranger.CoveredNetworks(*AllIPv6)
 
 */
 package cidranger

@@ -57,8 +57,8 @@ containingNetworks, err = ranger.ContainingNetworks(net.ParseIP("128.168.1.0"))
 ```
 To get all networks in ranger,
 ```go
-entries, err := ranger.CoveredNetworks(AllIPv4) // for IPv4
-entries, err := ranger.CoveredNetworks(AllIPv6) // for IPv6
+entries, err := ranger.CoveredNetworks(*AllIPv4) // for IPv4
+entries, err := ranger.CoveredNetworks(*AllIPv6) // for IPv6
 ```
 
 ## Benchmark

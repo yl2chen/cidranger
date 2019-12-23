@@ -12,6 +12,13 @@ import (
 	rnet "github.com/yl2chen/cidranger/net"
 )
 
+func getAllByVersion(version rnet.IPVersion) *net.IPNet {
+	if version == rnet.IPv6 {
+		return AllIPv6
+	}
+	return AllIPv4
+}
+
 func TestPrefixTrieInsert(t *testing.T) {
 	cases := []struct {
 		version                      rnet.IPVersion
@@ -73,6 +80,10 @@ func TestPrefixTrieInsert(t *testing.T) {
 			}
 
 			assert.Equal(t, len(tc.expectedNetworksInDepthOrder), trie.Len(), "trie size should match")
+
+			allNetworks, err := trie.CoveredNetworks(*getAllByVersion(tc.version))
+			assert.Nil(t, err)
+			assert.Equal(t, len(allNetworks), trie.Len(), "trie size should match")
 
 			walk := trie.walkDepth()
 			for _, network := range tc.expectedNetworksInDepthOrder {
@@ -203,6 +214,10 @@ func TestPrefixTrieRemove(t *testing.T) {
 			}
 
 			assert.Equal(t, len(tc.expectedNetworksInDepthOrder), trie.Len(), "trie size should match after revmoval")
+
+			allNetworks, err := trie.CoveredNetworks(*getAllByVersion(tc.version))
+			assert.Nil(t, err)
+			assert.Equal(t, len(allNetworks), trie.Len(), "trie size should match")
 
 			walk := trie.walkDepth()
 			for _, network := range tc.expectedNetworksInDepthOrder {
@@ -491,6 +506,10 @@ func TestTrieMemUsage(t *testing.T) {
 		t.Logf("Inserted All (%d networks)", trie.Len())
 		assert.Less(t, 0, trie.Len(), "Len should > 0")
 		assert.LessOrEqualf(t, trie.Len(), numIPs, "Len should <= %d", numIPs)
+
+		allNetworks, err := trie.CoveredNetworks(*getAllByVersion(rnet.IPv4))
+		assert.Nil(t, err)
+		assert.Equal(t, len(allNetworks), trie.Len(), "trie size should match")
 
 		// Remove networks.
 		_, all, _ := net.ParseCIDR("0.0.0.0/0")
