@@ -208,40 +208,52 @@ func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) error {
 		p.entry = entry
 		return nil
 	}
+
 	bit, err := p.targetBitFromIP(network.Number)
 	if err != nil {
 		return err
 	}
-	child := p.children[bit]
-	if child == nil {
-		return p.insertPrefix(bit, newEntryTrie(network, entry))
+	existingChild := p.children[bit]
+
+	// No existing child, insert new leaf trie.
+	if existingChild == nil {
+		p.appendTrie(bit, newEntryTrie(network, entry))
+		return nil
 	}
 
-	lcb, err := network.LeastCommonBitPosition(child.network)
+	// Check whether it is necessary to insert additional path prefix between current trie and existing child,
+	// in the case that inserted network diverges on its path to existing child.
+	lcb, err := network.LeastCommonBitPosition(existingChild.network)
+	divergingBitPos := int(lcb) - 1
+	if divergingBitPos > existingChild.targetBitPosition() {
+		pathPrefix := newPathprefixTrie(network, p.totalNumberOfBits()-lcb)
+		err := p.insertPrefix(bit, pathPrefix, existingChild)
+		if err != nil {
+			return err
+		}
+		// Update new child
+		existingChild = pathPrefix
+	}
+	return existingChild.insert(network, entry)
+}
+
+func (p *prefixTrie) appendTrie(bit uint32, prefix *prefixTrie) {
+	p.children[bit] = prefix
+	prefix.parent = p
+}
+
+func (p *prefixTrie) insertPrefix(bit uint32, pathPrefix, child *prefixTrie) error {
+	// Set parent/child relationship between current trie and inserted pathPrefix
+	p.children[bit] = pathPrefix
+	pathPrefix.parent = p
+
+	// Set parent/child relationship between inserted pathPrefix and original child
+	pathPrefixBit, err := pathPrefix.targetBitFromIP(child.network.Number)
 	if err != nil {
 		return err
 	}
-	if int(lcb) > child.targetBitPosition()+1 {
-		child = newPathprefixTrie(network, p.totalNumberOfBits()-lcb)
-		err := p.insertPrefix(bit, child)
-		if err != nil {
-			return err
-		}
-	}
-	return child.insert(network, entry)
-}
-
-func (p *prefixTrie) insertPrefix(bits uint32, prefix *prefixTrie) error {
-	child := p.children[bits]
-	if child != nil {
-		prefixBit, err := prefix.targetBitFromIP(child.network.Number)
-		if err != nil {
-			return err
-		}
-		prefix.insertPrefix(prefixBit, child)
-	}
-	p.children[bits] = prefix
-	prefix.parent = p
+	pathPrefix.children[pathPrefixBit] = child
+	child.parent = pathPrefix
 	return nil
 }
 
@@ -272,7 +284,7 @@ func (p *prefixTrie) qualifiesForPathCompression() bool {
 	//		1. records no CIDR entry
 	//		2. has single or no child
 	//		3. is not root trie
-	return !p.hasEntry() && p.childrenCount() <= 1 && p.parent != nil;
+	return !p.hasEntry() && p.childrenCount() <= 1 && p.parent != nil
 }
 
 func (p *prefixTrie) compressPathIfPossible() error {
