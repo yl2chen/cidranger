@@ -1,10 +1,13 @@
 # cidranger
+
 Fast IP to CIDR block(s) lookup using trie in Golang, inspired by [IPv4 route lookup linux](https://vincent.bernat.im/en/blog/2017-ipv4-route-lookup-linux).  Possible use cases include detecting if a IP address is from published cloud provider CIDR blocks (e.g. 52.95.110.1 is contained in published AWS Route53 CIDR 52.95.110.0/24), IP routing rules, etc.
 
-[![GoDoc Reference](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://godoc.org/github.com/yl2chen/cidranger)
-[![Build Status](https://img.shields.io/travis/yl2chen/cidranger.svg?branch=master&style=flat-square)](https://travis-ci.org/yl2chen/cidranger)
-[![Coverage Status](https://img.shields.io/coveralls/yl2chen/cidranger.svg?branch=master&style=flat-square)](https://coveralls.io/github/yl2chen/cidranger?branch=master)
-[![Go Report Card](https://goreportcard.com/badge/github.com/yl2chen/cidranger?&style=flat-square)](https://goreportcard.com/report/github.com/yl2chen/cidranger)
+Forked from https://github.com/yl2chen/cidranger due to upstream inactivity.
+
+[![GoDoc Reference](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=flat-square)](https://godoc.org/github.com/libp2p/go-cidranger)
+[![Build Status](https://img.shields.io/travis/libp2p/go-cidranger.svg?branch=master&style=flat-square)](https://travis-ci.org/libp2p/go-cidranger)
+[![Coverage Status](https://img.shields.io/coveralls/libp2p/go-cidranger.svg?branch=master&style=flat-square)](https://coveralls.io/github/libp2p/go-cidranger?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/libp2p/go-cidranger?&style=flat-square)](https://goreportcard.com/report/github.com/libp2p/go-cidranger)
 
 This is visualization of a trie storing CIDR blocks `128.0.0.0/2` `192.0.0.0/2` `200.0.0.0/5` without path compression, the 0/1 number on the path indicates the bit value of the IP address at specified bit position, hence the path from root node to a child node represents a CIDR block that contains all IP ranges of its children, and children's children.
 <p align="left"><img src="http://i.imgur.com/vSKTEBb.png" width="600" /></p>
@@ -18,7 +21,7 @@ Configure imports.
 import (
   "net"
 
-  "github.com/yl2chen/cidranger"
+  "github.com/libp2p/go-cidranger"
 )
 ```
 Create a new ranger implemented using Path-Compressed prefix trie.
