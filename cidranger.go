@@ -97,3 +97,7 @@ type Ranger interface {
 func NewPCTrieRanger() Ranger {
 	return newVersionedRanger(newPrefixTree)
 }
+
+func NewTrie2Ranger() Ranger {
+	return newVersionedRanger(newTrie2Ranger)
+}

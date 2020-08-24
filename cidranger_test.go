@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	rnet "github.com/libp2p/go-cidranger/net"
+	"github.com/stretchr/testify/assert"
 )
 
 /*
@@ -128,6 +128,9 @@ func testCoversNetworksAgainstBase(t *testing.T, iterations int, netGen networkG
 
 func BenchmarkPCTrieHitIPv4UsingAWSRanges(b *testing.B) {
 	benchmarkContainsUsingAWSRanges(b, net.ParseIP("52.95.110.1"), NewPCTrieRanger())
+}
+func BenchmarkTrie2HitIPv4UsingAWSRanges(b *testing.B) {
+	benchmarkContainsUsingAWSRanges(b, net.ParseIP("52.95.110.1"), NewTrie2Ranger())
 }
 func BenchmarkBruteRangerHitIPv4UsingAWSRanges(b *testing.B) {
 	benchmarkContainsUsingAWSRanges(b, net.ParseIP("52.95.110.1"), newBruteRanger())
