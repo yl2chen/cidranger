@@ -135,11 +135,12 @@ func (p *prefixTrie) Len() int {
 func (p *prefixTrie) String() string {
 	children := []string{}
 	padding := strings.Repeat("| ", p.level()+1)
-	for bits, child := range p.children {
-		if child == nil {
+	lens := len(p.children)
+	for bits := 0; bits < lens; bits++ {
+		if p.children[bits] == nil {
 			continue
 		}
-		childStr := fmt.Sprintf("\n%s%d--> %s", padding, bits, child.String())
+		childStr := fmt.Sprintf("\n%s%d--> %s", padding, bits, p.children[bits].String())
 		children = append(children, childStr)
 	}
 	return fmt.Sprintf("%s (target_pos:%d:has_entry:%t)%s", p.network,
@@ -314,9 +315,10 @@ func (p *prefixTrie) compressPathIfPossible() error {
 
 	// Find lone child.
 	var loneChild *prefixTrie
-	for _, child := range p.children {
-		if child != nil {
-			loneChild = child
+	lens := len(p.children)
+	for bits := 0; bits < lens; bits++ {
+		if p.children[bits] != nil {
+			loneChild = p.children[bits]
 			break
 		}
 	}
@@ -338,8 +340,9 @@ func (p *prefixTrie) compressPathIfPossible() error {
 
 func (p *prefixTrie) childrenCount() int {
 	count := 0
-	for _, child := range p.children {
-		if child != nil {
+	lens := len(p.children)
+	for bits := 0; bits < lens; bits++ {
+		if p.children[bits] != nil {
 			count++
 		}
 	}
@@ -379,14 +382,17 @@ func (p *prefixTrie) walkDepth() <-chan RangerEntry {
 			entries <- p.entry
 		}
 		childEntriesList := []<-chan RangerEntry{}
-		for _, trie := range p.children {
-			if trie == nil {
+		lens := len(p.children)
+		for bits := 0; bits < lens; bits++ {
+			if p.children[bits] == nil {
 				continue
 			}
-			childEntriesList = append(childEntriesList, trie.walkDepth())
+			childEntriesList = append(childEntriesList, p.children[bits].walkDepth())
 		}
-		for _, childEntries := range childEntriesList {
-			for entry := range childEntries {
+
+		lensx := len(childEntriesList)
+		for i := 0; i < lensx; i++ {
+			for entry := range childEntriesList[i] {
 				entries <- entry
 			}
 		}
