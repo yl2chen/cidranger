@@ -182,6 +182,14 @@ func BenchmarkBruteRangerMissContainingNetworksIPv6UsingAWSRanges(b *testing.B) 
 	benchmarkContainingNetworksUsingAWSRanges(b, net.ParseIP("2620::ffff"), newBruteRanger())
 }
 
+func BenchmarkNewPathprefixTriev4(b *testing.B) {
+	benchmarkNewPathprefixTrie(b, "192.128.0.0/24")
+}
+
+func BenchmarkNewPathprefixTriev6(b *testing.B) {
+	benchmarkNewPathprefixTrie(b, "8000::/24")
+}
+
 func benchmarkContainsUsingAWSRanges(tb testing.TB, nn net.IP, ranger Ranger) {
 	configureRangerWithAWSRanges(tb, ranger)
 	for n := 0; n < tb.(*testing.B).N; n++ {
@@ -193,6 +201,19 @@ func benchmarkContainingNetworksUsingAWSRanges(tb testing.TB, nn net.IP, ranger 
 	configureRangerWithAWSRanges(tb, ranger)
 	for n := 0; n < tb.(*testing.B).N; n++ {
 		ranger.ContainingNetworks(nn)
+	}
+}
+
+func benchmarkNewPathprefixTrie(b *testing.B, net1 string) {
+	_, ipNet1, _ := net.ParseCIDR(net1)
+	ones, _ := ipNet1.Mask.Size()
+
+	n1 := rnet.NewNetwork(*ipNet1)
+	uOnes := uint(ones)
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		newPathprefixTrie(n1, uOnes)
 	}
 }
 
