@@ -87,6 +87,13 @@ func (p *prefixTrie) Insert(entry RangerEntry) error {
 	return err
 }
 
+// MergeInsert inserts a RangerEntry into prefix trie, and apply merge if possible
+func (p *prefixTrie) MergeInsert(entry RangerEntry) error {
+	network := rnet.NewNetwork(entry.Network())
+	_, err := p.mergeInsert(network.Number, network, entry)
+	return err
+}
+
 // Remove removes RangerEntry identified by given network from trie.
 func (p *prefixTrie) Remove(network net.IPNet) (RangerEntry, error) {
 	entry, err := p.remove(rnet.NewNetwork(network))
@@ -250,6 +257,94 @@ func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) (bool, erro
 		existingChild = pathPrefix
 	}
 	return existingChild.insert(network, entry)
+}
+
+func (p *prefixTrie) mergeInsert(number rnet.NetworkNumber, network rnet.Network, entry RangerEntry) (bool, error) {
+
+	if p.network.Equal(network) {
+		p.entry = entry
+		if p.childrenCount() > 0 {
+			// has child, which can be merged
+			p.children = p.children[:0]
+			return true, nil
+		}
+		// no child, no merge
+		return false, nil
+	}
+
+	if p.hasEntry() && p.network.Contains(number) {
+		// p contains network already, no need to insert
+		return false, nil
+	}
+
+	bit, err := p.targetBitFromIP(network.Number)
+	if err != nil {
+		return false, err
+	}
+
+	existingChild := p.children[bit]
+	// no child on this direction
+	if existingChild == nil {
+		ones, _ := network.IPNet.Mask.Size()
+		if uint(ones) != p.numBitsSkipped+1 {
+			// new network are not adjacent from p, just insert
+			leaf := newPathprefixTrie(network, uint(ones))
+			leaf.entry = entry
+			p.appendTrie(bit, leaf)
+			return false, nil
+		}
+
+		// new network are adjacent from p, check p's other child
+		if p.children[^bit&1] != nil && p.children[^bit&1].numBitsSkipped == p.numBitsSkipped+1 {
+			// reset the child
+			p.children = p.children[:0]
+			if p.entry == nil {
+				p.entry = NewBasicRangerEntry(p.network.IPNet)
+			}
+			return true, nil
+		}
+
+		// the other child are not meet the requirement for merge
+		p.appendTrie(bit, newEntryTrie(network, entry))
+		return false, nil
+	}
+
+	// there's child on this direction
+	// Check whether it is necessary to insert additional path prefix between current trie and existing child,
+	// in the case that inserted network diverges on its path to existing child.
+	lcb, err := network.LeastCommonBitPosition(existingChild.network)
+	divergingBitPos := int(lcb) - 1
+	if divergingBitPos > existingChild.targetBitPosition() {
+		pathPrefix := newPathprefixTrie(network, p.totalNumberOfBits()-lcb)
+		err := p.insertPrefix(bit, pathPrefix, existingChild)
+		if err != nil {
+			return false, err
+		}
+		// Update new child
+		existingChild = pathPrefix
+	}
+
+	merged, err := existingChild.mergeInsert(number, network, entry)
+	if merged {
+		// child merged, check if p need to merge as well
+		return p.mergeChildren(), err
+	}
+	return merged, err
+}
+
+func (p *prefixTrie) mergeChildren() bool {
+	for _, child := range p.children {
+		if child == nil || child.numBitsSkipped != p.numBitsSkipped+1 {
+			return false
+		}
+	}
+
+	// this can be merged
+	p.children = p.children[:0]
+	if p.entry == nil {
+		p.entry = NewBasicRangerEntry(p.network.IPNet)
+	}
+	return true
 }
 
 func (p *prefixTrie) appendTrie(bit uint32, prefix *prefixTrie) {

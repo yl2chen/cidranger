@@ -29,6 +29,16 @@ func (v *versionedRanger) Insert(entry RangerEntry) error {
 	return ranger.Insert(entry)
 }
 
+// MergeInsert inserts a RangerEntry into prefix trie, and apply merge if possible
+func (v *versionedRanger) MergeInsert(entry RangerEntry) error {
+	network := entry.Network()
+	ranger, err := v.getRangerForIP(network.IP)
+	if err != nil {
+		return err
+	}
+	return ranger.MergeInsert(entry)
+}
+
 func (v *versionedRanger) Remove(network net.IPNet) (RangerEntry, error) {
 	ranger, err := v.getRangerForIP(network.IP)
 	if err != nil {

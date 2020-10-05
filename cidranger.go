@@ -85,6 +85,7 @@ func NewBasicRangerEntry(ipNet net.IPNet) RangerEntry {
 // Ranger is an interface for cidr block containment lookups.
 type Ranger interface {
 	Insert(entry RangerEntry) error
+	MergeInsert(entry RangerEntry) error
 	Remove(network net.IPNet) (RangerEntry, error)
 	Contains(ip net.IP) (bool, error)
 	ContainingNetworks(ip net.IP) ([]RangerEntry, error)

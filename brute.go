@@ -43,6 +43,11 @@ func (b *bruteRanger) Insert(entry RangerEntry) error {
 	return nil
 }
 
+// MergeInsert not implement in bruteRanger
+func (b *bruteRanger) MergeInsert(_ RangerEntry) error {
+	return nil
+}
+
 // Remove removes a RangerEntry identified by given network from ranger.
 func (b *bruteRanger) Remove(network net.IPNet) (RangerEntry, error) {
 	networks, err := b.getEntriesByVersion(network.IP)

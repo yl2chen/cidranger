@@ -2,6 +2,7 @@ package cidranger
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math/rand"
 	"net"
 	"runtime"
@@ -114,6 +115,50 @@ func TestPrefixTrieString(t *testing.T) {
 | | 1--> 192.168.1.0/24 (target_pos:7:has_entry:true)
 | | | 0--> 192.168.1.0/30 (target_pos:1:has_entry:true)`
 	assert.Equal(t, expected, trie.String())
+}
+
+func TestPrefixTrieString2(t *testing.T) {
+	trie := newPrefixTree(rnet.IPv4).(*prefixTrie)
+	inserts := []string{"8.8.8.1/25", "8.8.9.1/25", "8.8.10.1/24"}
+	for _, insert := range inserts {
+		_, network, _ := net.ParseCIDR(insert)
+		trie.Insert(NewBasicRangerEntry(*network))
+		fmt.Printf("%s\n\n", trie.String())
+	}
+}
+
+func TestPrefixTrieMergeInsert(t *testing.T) {
+	trie := newPrefixTree(rnet.IPv4).(*prefixTrie)
+	inserts := []string{
+		"8.8.8.1/25",
+		"8.8.9.1/25",
+		"8.8.10.1/24",
+		"8.8.8.128/25",
+		"8.8.9.128/25",
+		"8.8.11.128/25",
+		"8.8.11.0/25",
+	}
+	for _, insert := range inserts {
+		_, network, _ := net.ParseCIDR(insert)
+		trie.MergeInsert(NewBasicRangerEntry(*network))
+		fmt.Printf("%s\n\n", trie.String())
+	}
+}
+
+func TestPrefixTrieMergeInsert2(t *testing.T) {
+	trie := newPrefixTree(rnet.IPv4).(*prefixTrie)
+	inserts := []string{
+		"8.8.8.128/29",
+		"8.8.8.128/29",
+		"8.8.9.0/24",
+		"8.8.8.0/23",
+		"8.8.9.0/24",
+	}
+	for _, insert := range inserts {
+		_, network, _ := net.ParseCIDR(insert)
+		trie.MergeInsert(NewBasicRangerEntry(*network))
+		fmt.Printf("%s\n\n", trie.String())
+	}
 }
 
 func TestPrefixTrieRemove(t *testing.T) {
