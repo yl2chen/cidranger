@@ -136,6 +136,10 @@ func (p *prefixTrie) Len() int {
 	return p.size
 }
 
+func (p *prefixTrie) RecalculateLen() int {
+	return p.recalculateLen()
+}
+
 // String returns string representation of trie, mainly for visualization and
 // debugging.
 func (p *prefixTrie) String() string {
@@ -345,6 +349,20 @@ func (p *prefixTrie) mergeChildren() bool {
 		p.entry = NewBasicRangerEntry(p.network.IPNet)
 	}
 	return true
+}
+
+func (p *prefixTrie) recalculateLen() int {
+	var count int
+	for _, child := range p.children {
+		if child != nil {
+			count += child.recalculateLen()
+		}
+	}
+
+	if p.hasEntry() {
+		count++
+	}
+	return count
 }
 
 func (p *prefixTrie) appendTrie(bit uint32, prefix *prefixTrie) {

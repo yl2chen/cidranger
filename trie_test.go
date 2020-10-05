@@ -142,6 +142,7 @@ func TestPrefixTrieMergeInsert(t *testing.T) {
 		_, network, _ := net.ParseCIDR(insert)
 		trie.MergeInsert(NewBasicRangerEntry(*network))
 		fmt.Printf("%s\n\n", trie.String())
+		fmt.Printf("size : %d\n\n", trie.recalculateLen())
 	}
 }
 
@@ -158,6 +159,7 @@ func TestPrefixTrieMergeInsert2(t *testing.T) {
 		_, network, _ := net.ParseCIDR(insert)
 		trie.MergeInsert(NewBasicRangerEntry(*network))
 		fmt.Printf("%s\n\n", trie.String())
+		fmt.Printf("size : %d\n\n", trie.recalculateLen())
 	}
 }
 

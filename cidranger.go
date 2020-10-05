@@ -91,6 +91,7 @@ type Ranger interface {
 	ContainingNetworks(ip net.IP) ([]RangerEntry, error)
 	CoveredNetworks(network net.IPNet) ([]RangerEntry, error)
 	Len() int
+	RecalculateLen() int
 }
 
 // NewPCTrieRanger returns a versionedRanger that supports both IPv4 and IPv6

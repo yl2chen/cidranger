@@ -76,6 +76,11 @@ func (v *versionedRanger) Len() int {
 	return v.ipV4Ranger.Len() + v.ipV6Ranger.Len()
 }
 
+// RecalculateLen returns number of networks in ranger.
+func (v *versionedRanger) RecalculateLen() int {
+	return v.ipV4Ranger.RecalculateLen() + v.ipV6Ranger.RecalculateLen()
+}
+
 func (v *versionedRanger) getRangerForIP(ip net.IP) (Ranger, error) {
 	if ip.To4() != nil {
 		return v.ipV4Ranger, nil
