@@ -163,6 +163,27 @@ func TestPrefixTrieMergeInsert2(t *testing.T) {
 	}
 }
 
+func TestPrefixTrieMergeInsert3(t *testing.T) {
+	trie := newPrefixTree(rnet.IPv4).(*prefixTrie)
+	inserts := []string{
+		"1.125.109.0/24",
+		"1.125.111.0/24",
+		"1.125.105.0/24",
+		"1.125.108.0/24",
+		"1.125.106.0/24",
+		"1.125.106.0/24",
+		"1.125.110.0/24",
+		"1.125.107.0/24",
+		"1.125.108.0/24",
+	}
+	for _, insert := range inserts {
+		_, network, _ := net.ParseCIDR(insert)
+		trie.MergeInsert(NewBasicRangerEntry(*network))
+		fmt.Printf("%s\n\n", trie.String())
+		fmt.Printf("size : %d\n\n", trie.recalculateLen())
+	}
+}
+
 func TestPrefixTrieRemove(t *testing.T) {
 	cases := []struct {
 		version                      rnet.IPVersion

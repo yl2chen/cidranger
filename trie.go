@@ -299,7 +299,10 @@ func (p *prefixTrie) mergeInsert(number rnet.NetworkNumber, network rnet.Network
 		}
 
 		// new network are adjacent from p, check p's other child
-		if p.children[^bit&1] != nil && p.children[^bit&1].numBitsSkipped == p.numBitsSkipped+1 {
+		otherBit := ^bit & 1
+		if p.children[otherBit] != nil &&
+			p.children[otherBit].numBitsSkipped == p.numBitsSkipped+1 &&
+			p.children[otherBit].hasEntry() {
 			// reset the child
 			p.children = p.children[:0]
 			if p.entry == nil {
@@ -338,7 +341,7 @@ func (p *prefixTrie) mergeInsert(number rnet.NetworkNumber, network rnet.Network
 
 func (p *prefixTrie) mergeChildren() bool {
 	for _, child := range p.children {
-		if child == nil || child.numBitsSkipped != p.numBitsSkipped+1 {
+		if child == nil || child.numBitsSkipped != p.numBitsSkipped+1 || !child.hasEntry() {
 			return false
 		}
 	}
