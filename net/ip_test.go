@@ -467,6 +467,14 @@ func BenchmarkNetworkContainsIPv6(b *testing.B) {
 	benchmarkNetworkContains(b, "2600:1ffe:e000::/40", "2600:1ffe:f000::")
 }
 
+func BenchmarkNetworkEqualIPv4(b *testing.B) {
+	benchmarkNetworkEqual(b, "192.128.0.0/24", "192.128.0.0/24")
+}
+
+func BenchmarkNetworkEqualIPv6(b *testing.B) {
+	benchmarkNetworkEqual(b, "8000::/24", "8000::/24")
+}
+
 func benchmarkNetworkNumberBit(b *testing.B, ip string, pos uint) {
 	nn := NewNetworkNumber(net.ParseIP(ip))
 	for n := 0; n < b.N; n++ {
@@ -488,5 +496,15 @@ func benchmarkNetworkContains(b *testing.B, cidr string, ip string) {
 	network := NewNetwork(*ipNet)
 	for n := 0; n < b.N; n++ {
 		network.Contains(nn)
+	}
+}
+
+func benchmarkNetworkEqual(b *testing.B, net1 string, net2 string) {
+	_, ipNet1, _ := net.ParseCIDR(net1)
+	_, ipNet2, _ := net.ParseCIDR(net2)
+	n1 := NewNetwork(*ipNet1)
+	n2 := NewNetwork(*ipNet2)
+	for n := 0; n < b.N; n++ {
+		n1.Equal(n2)
 	}
 }

@@ -61,13 +61,12 @@ func newPrefixTree(version rnet.IPVersion) Ranger {
 }
 
 func newPathprefixTrie(network rnet.Network, numBitsSkipped uint) *prefixTrie {
-	version := rnet.IPv4
-	if len(network.Number) == rnet.IPv6Uint32Count {
-		version = rnet.IPv6
+	path := &prefixTrie{
+		children:       make([]*prefixTrie, 2, 2),
+		numBitsSkipped: numBitsSkipped,
+		numBitsHandled: 1,
+		network:        network.Masked(int(numBitsSkipped)),
 	}
-	path := newPrefixTree(version).(*prefixTrie)
-	path.numBitsSkipped = numBitsSkipped
-	path.network = network.Masked(int(numBitsSkipped))
 	return path
 }
 
