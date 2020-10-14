@@ -182,6 +182,17 @@ func TestPrefixTrieMergeInsert3(t *testing.T) {
 		fmt.Printf("%s\n\n", trie.String())
 		fmt.Printf("size : %d\n\n", trie.recalculateLen())
 	}
+
+	v4, v6 := trie.GetPrefixLayout()
+	if v6 != nil {
+		t.Errorf("v6 should be nil")
+	}
+	p22, f22 := v4[22]
+	p23, f23 := v4[23]
+	p24, f24 := v4[24]
+	if !f22 || !f23 || !f24 || p22 != 1 || p23 != 1 || p24 != 1 {
+		t.Errorf("layout not correct, %+v", v4)
+	}
 }
 
 func TestPrefixTrieRemove(t *testing.T) {

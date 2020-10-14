@@ -136,8 +136,16 @@ func (p *prefixTrie) Len() int {
 	return p.size
 }
 
+// RecalculateLen re-walk the tree to return networks in ranger
 func (p *prefixTrie) RecalculateLen() int {
 	return p.recalculateLen()
+}
+
+// GetPrefixLayout returns prefix layout in ranger
+func (p *prefixTrie) GetPrefixLayout() (map[int]int, map[int]int) {
+	layout := make(map[int]int)
+	p.getPrefixLayout(layout)
+	return layout, nil
 }
 
 // String returns string representation of trie, mainly for visualization and
@@ -366,6 +374,19 @@ func (p *prefixTrie) recalculateLen() int {
 		count++
 	}
 	return count
+}
+
+func (p *prefixTrie) getPrefixLayout(layout map[int]int) {
+	for _, child := range p.children {
+		if child != nil {
+			child.getPrefixLayout(layout)
+		}
+	}
+
+	if p.hasEntry() {
+		// convert numBitsSkipped to int should be safe
+		layout[int(p.numBitsSkipped)]++
+	}
 }
 
 func (p *prefixTrie) appendTrie(bit uint32, prefix *prefixTrie) {

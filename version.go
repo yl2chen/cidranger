@@ -81,6 +81,13 @@ func (v *versionedRanger) RecalculateLen() int {
 	return v.ipV4Ranger.RecalculateLen() + v.ipV6Ranger.RecalculateLen()
 }
 
+// GetPrefixLayout returns prefix layout for the underlying v4 and v6 ranger
+func (v *versionedRanger) GetPrefixLayout() (map[int]int, map[int]int) {
+	v4, _ := v.ipV4Ranger.GetPrefixLayout()
+	v6, _ := v.ipV6Ranger.GetPrefixLayout()
+	return v4, v6
+}
+
 func (v *versionedRanger) getRangerForIP(ip net.IP) (Ranger, error) {
 	if ip.To4() != nil {
 		return v.ipV4Ranger, nil

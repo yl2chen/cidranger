@@ -123,6 +123,11 @@ func (b *bruteRanger) RecalculateLen() int {
 	return len(b.ipV4Entries) + len(b.ipV6Entries)
 }
 
+// GetPrefixLayout not implement in bruteRanger
+func (b *bruteRanger) GetPrefixLayout() (map[int]int, map[int]int) {
+	return nil, nil
+}
+
 func (b *bruteRanger) getEntriesByVersion(ip net.IP) (map[string]RangerEntry, error) {
 	if ip.To4() != nil {
 		return b.ipV4Entries, nil
