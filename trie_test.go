@@ -137,6 +137,16 @@ func TestPrefixTrieRemove(t *testing.T) {
 		},
 		{
 			rnet.IPv4,
+			[]string{"192.168.0.1/32"},
+			[]string{"192.168.0.1/24"},
+			[]string{""},
+			[]string{"192.168.0.1/32"},
+			`0.0.0.0/0 (target_pos:31:has_entry:false)
+| 1--> 192.168.0.1/32 (target_pos:-1:has_entry:true)`,
+			"remove from ranger that contains a single ip block",
+		},
+		{
+			rnet.IPv4,
 			[]string{"1.2.3.4/32", "1.2.3.5/32"},
 			[]string{"1.2.3.5/32"},
 			[]string{"1.2.3.5/32"},
@@ -546,10 +556,10 @@ func GenLeafIPNet(ip net.IP) net.IPNet {
 // GenIPV4 generates an IPV4 address
 func GenIPV4() net.IP {
 	rand.Seed(time.Now().UnixNano())
-	var min, max int
-	min = 1
-	max = 4294967295
-	nn := rand.Intn(max-min) + min
+	nn := rand.Uint32()
+	if nn < 4294967295 {
+		nn++
+	}
 	ip := make(net.IP, 4)
 	binary.BigEndian.PutUint32(ip, uint32(nn))
 	return ip

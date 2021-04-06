@@ -284,6 +284,9 @@ func (p *prefixTrie) remove(network rnet.Network) (RangerEntry, error) {
 		}
 		return entry, nil
 	}
+	if p.targetBitPosition() < 0 {
+		return nil, nil
+	}
 	bit, err := p.targetBitFromIP(network.Number)
 	if err != nil {
 		return nil, err
