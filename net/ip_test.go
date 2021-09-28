@@ -17,6 +17,7 @@ func TestNewNetworkNumber(t *testing.T) {
 		{nil, nil, "nil input"},
 		{net.IP([]byte{1, 1, 1, 1, 1}), nil, "bad input"},
 		{net.ParseIP("128.0.0.0"), NetworkNumber([]uint32{2147483648}), "IPv4"},
+		{net.ParseIP("::ffff:8000:0"), NetworkNumber([]uint32{2147483648}), "IPv4"},
 		{
 			net.ParseIP("2001:0db8::ff00:0042:8329"),
 			NetworkNumber([]uint32{536939960, 0, 65280, 4358953}),
@@ -126,6 +127,7 @@ func TestNetworkNumberNext(t *testing.T) {
 		{"0.0.0.0", "0.0.0.1", "IPv4 basic"},
 		{"0.0.0.255", "0.0.1.0", "IPv4 rollover"},
 		{"0.255.255.255", "1.0.0.0", "IPv4 consecutive rollover"},
+		{"::ffff:ff:ffff", "1.0.0.0", "IPv4 consecutive rollover"},
 		{"8000::0", "8000::1", "IPv6 basic"},
 		{"0::ffff", "0::1:0", "IPv6 rollover"},
 		{"0:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "1::", "IPv6 consecutive rollover"},
@@ -149,6 +151,7 @@ func TestNeworkNumberPrevious(t *testing.T) {
 		{"0.0.0.1", "0.0.0.0", "IPv4 basic"},
 		{"0.0.1.0", "0.0.0.255", "IPv4 rollover"},
 		{"1.0.0.0", "0.255.255.255", "IPv4 consecutive rollover"},
+		{"1.0.0.0", "::ffff:ff:ffff", "IPv4 consecutive rollover"},
 		{"8000::1", "8000::0", "IPv6 basic"},
 		{"0::1:0", "0::ffff", "IPv6 rollover"},
 		{"1::0", "0:ffff:ffff:ffff:ffff:ffff:ffff:ffff", "IPv6 consecutive rollover"},
@@ -225,6 +228,15 @@ func TestNewNetwork(t *testing.T) {
 	assert.Equal(t, NetworkNumberMask{math.MaxUint32 - uint32(math.MaxUint8)}, n.Mask)
 }
 
+func TestNewNetwork2(t *testing.T) {
+	_, ipNet, _ := net.ParseCIDR("::ffff:c080:0/120")
+	n := NewNetwork(*ipNet)
+
+	assert.Equal(t, *&ipNet.IP, n.IPNet.IP)
+	assert.Equal(t, NetworkNumber{3229614080}, n.Number)
+	assert.Equal(t, NetworkNumberMask{math.MaxUint32 - uint32(math.MaxUint8)}, n.Mask)
+}
+
 func TestNetworkMasked(t *testing.T) {
 	cases := []struct {
 		network       string
@@ -257,6 +269,7 @@ func TestNetworkEqual(t *testing.T) {
 		name  string
 	}{
 		{"192.128.0.0/24", "192.128.0.0/24", true, "IPv4 equals"},
+		{"192.128.0.0/24", "::ffff:c080:0/120", true, "IPv4 equals"},
 		{"192.128.0.0/24", "192.128.0.0/23", false, "IPv4 not equals"},
 		{"8000::/24", "8000::/24", true, "IPv6 equals"},
 		{"8000::/24", "8000::/23", false, "IPv6 not equals"},

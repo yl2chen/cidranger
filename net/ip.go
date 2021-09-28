@@ -178,6 +178,7 @@ type Network struct {
 
 // NewNetwork returns Network built using given net.IPNet.
 func NewNetwork(ipNet net.IPNet) Network {
+	ipNet = getNetwork(ipNet)
 	return Network{
 		IPNet:  ipNet,
 		Number: NewNetworkNumber(ipNet.IP),
@@ -270,4 +271,13 @@ func NextIP(ip net.IP) net.IP {
 // PreviousIP returns the previous sequential ip.
 func PreviousIP(ip net.IP) net.IP {
 	return NewNetworkNumber(ip).Previous().ToIP()
+}
+
+// getNetwork converts IPv4 mapped IPv6 subnet masks to 4 bytes.
+// E.g. ::ffff:d1ad:35a7/128 get converted to 209.173.54.167/32. /128 becomes /32, /120 becomes /24 and so on.
+func getNetwork(network net.IPNet) net.IPNet {
+	if network.IP.To4() != nil && len(network.Mask) == net.IPv6len {
+		network.Mask = network.Mask[12:16]
+	}
+	return network
 }
