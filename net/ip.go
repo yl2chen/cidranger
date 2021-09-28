@@ -4,6 +4,7 @@ Package net provides utility functions for working with IPs (net.IP).
 package net
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
@@ -236,7 +237,7 @@ func (n Network) LeastCommonBitPosition(n1 Network) (uint, error) {
 
 // Equal is the equality test for 2 networks.
 func (n Network) Equal(n1 Network) bool {
-	return n.String() == n1.String()
+	return bytes.Equal(n.IPNet.IP, n1.IPNet.IP) && bytes.Equal(n.IPNet.Mask, n1.IPNet.Mask)
 }
 
 func (n Network) String() string {
