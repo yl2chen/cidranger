@@ -209,7 +209,7 @@ func (n Network) Contains(nn NetworkNumber) bool {
 	return true
 }
 
-// Contains returns true if Network covers o, false otherwise
+// Covers returns true if Network covers o, false otherwise
 func (n Network) Covers(o Network) bool {
 	if len(n.Number) != len(o.Number) {
 		return false

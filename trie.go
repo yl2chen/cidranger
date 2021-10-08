@@ -124,6 +124,13 @@ func (p *prefixTrie) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) {
 	return p.coveredNetworks(net)
 }
 
+// CoveredByNetworks returns the list of RangerEntry(s) the given ipnet
+// is covered. It's like ContainingNetworks() for ipnet.
+func (p *prefixTrie) CoveredByNetworks(network net.IPNet) ([]RangerEntry, error) {
+	net := rnet.NewNetwork(network)
+	return p.coveredByNetworks(net)
+}
+
 // Len returns number of networks in ranger.
 func (p *prefixTrie) Len() int {
 	return p.size
@@ -212,6 +219,38 @@ func (p *prefixTrie) coveredNetworks(network rnet.Network) ([]RangerEntry, error
 		child := p.children[bit]
 		if child != nil {
 			return child.coveredNetworks(network)
+		}
+	}
+	return results, nil
+}
+
+func (p *prefixTrie) coveredByNetworks(network rnet.Network) ([]RangerEntry, error) {
+	results := []RangerEntry{}
+	if !p.network.Covers(network) {
+		return results, nil
+	}
+	if p.hasEntry() {
+		results = []RangerEntry{p.entry}
+	}
+	if p.targetBitPosition() < 0 {
+		return results, nil
+	}
+	bit, err := p.targetBitFromIP(network.Number)
+	if err != nil {
+		return nil, err
+	}
+	child := p.children[bit]
+	if child != nil {
+		ranges, err := child.coveredByNetworks(network)
+		if err != nil {
+			return nil, err
+		}
+		if len(ranges) > 0 {
+			if len(results) > 0 {
+				results = append(results, ranges...)
+			} else {
+				results = ranges
+			}
 		}
 	}
 	return results, nil
