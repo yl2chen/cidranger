@@ -124,11 +124,11 @@ func (p *prefixTrie) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) {
 	return p.coveredNetworks(net)
 }
 
-// CoveredByNetworks returns the list of RangerEntry(s) the given ipnet
-// is covered. It's like ContainingNetworks() for ipnet.
-func (p *prefixTrie) CoveredByNetworks(network net.IPNet) ([]RangerEntry, error) {
+// Covering returns the list of RangerEntry(s) the given ipnet
+// is covered by. It's like ContainingNetworks() for ipnet.
+func (p *prefixTrie) CoveringNetworks(network net.IPNet) ([]RangerEntry, error) {
 	net := rnet.NewNetwork(network)
-	return p.coveredByNetworks(net)
+	return p.coveringNetworks(net)
 }
 
 // Len returns number of networks in ranger.
@@ -224,8 +224,8 @@ func (p *prefixTrie) coveredNetworks(network rnet.Network) ([]RangerEntry, error
 	return results, nil
 }
 
-func (p *prefixTrie) coveredByNetworks(network rnet.Network) ([]RangerEntry, error) {
-	results := []RangerEntry{}
+func (p *prefixTrie) coveringNetworks(network rnet.Network) ([]RangerEntry, error) {
+	var results []RangerEntry
 	if !p.network.Covers(network) {
 		return results, nil
 	}
@@ -241,7 +241,7 @@ func (p *prefixTrie) coveredByNetworks(network rnet.Network) ([]RangerEntry, err
 	}
 	child := p.children[bit]
 	if child != nil {
-		ranges, err := child.coveredByNetworks(network)
+		ranges, err := child.coveringNetworks(network)
 		if err != nil {
 			return nil, err
 		}

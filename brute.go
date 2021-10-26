@@ -108,14 +108,14 @@ func (b *bruteRanger) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) 
 	return results, nil
 }
 
-// CoveredByNetworks returns the list of RangerEntry(s) the given ipnet
+// Covering returns the list of RangerEntry(s) the given ipnet
 // is covered. It's like ContainingNetworks() for ipnet.
-func (b *bruteRanger) CoveredByNetworks(network net.IPNet) ([]RangerEntry, error) {
+func (b *bruteRanger) CoveringNetworks(network net.IPNet) ([]RangerEntry, error) {
 	entries, err := b.getEntriesByVersion(network.IP)
 	if err != nil {
 		return nil, err
 	}
-	results := []RangerEntry{}
+	var results []RangerEntry
 	testNetwork := rnet.NewNetwork(network)
 	for _, entry := range entries {
 		entryNetwork := rnet.NewNetwork(entry.Network())

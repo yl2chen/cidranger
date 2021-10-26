@@ -30,8 +30,8 @@ func TestCoveredNetworksAgainstBaseIPv4(t *testing.T) {
 	testCoversNetworksAgainstBase(t, 100000, randomIPNetGenFactory(ipV4AWSRangesIPNets))
 }
 
-func TestCoveredByNetworksAgainstBaseIPv4(t *testing.T) {
-	testCoveredByNetworksAgainstBase(t, 100000, randomIPNetGenFactory(ipV4AWSRangesIPNets))
+func TestCoveringNetworksAgainstBaseIPv4(t *testing.T) {
+	testCoveringNetworksAgainstBase(t, 100000, randomIPNetGenFactory(ipV4AWSRangesIPNets))
 }
 
 // IPv6 spans an extremely large address space (2^128), randomly generated IPs
@@ -47,6 +47,10 @@ func TestContainingNetworksAgaistBaseIPv6(t *testing.T) {
 
 func TestCoveredNetworksAgainstBaseIPv6(t *testing.T) {
 	testCoversNetworksAgainstBase(t, 100000, randomIPNetGenFactory(ipV6AWSRangesIPNets))
+}
+
+func TestCoveringNetworksAgainstBaseIPv6(t *testing.T) {
+	testCoveringNetworksAgainstBase(t, 100000, randomIPNetGenFactory(ipV6AWSRangesIPNets))
 }
 
 func testContainsAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
@@ -124,7 +128,7 @@ func testCoversNetworksAgainstBase(t *testing.T, iterations int, netGen networkG
 	}
 }
 
-func testCoveredByNetworksAgainstBase(t *testing.T, iterations int, netGen networkGenerator) {
+func testCoveringNetworksAgainstBase(t *testing.T, iterations int, netGen networkGenerator) {
 	if testing.Short() {
 		t.Skip("Skipping memory test in `-short` mode")
 	}
@@ -137,10 +141,10 @@ func testCoveredByNetworksAgainstBase(t *testing.T, iterations int, netGen netwo
 
 	for i := 0; i < iterations; i++ {
 		network := netGen()
-		expected, err := baseRanger.CoveredByNetworks(network.IPNet)
+		expected, err := baseRanger.CoveringNetworks(network.IPNet)
 		assert.NoError(t, err)
 		for _, ranger := range rangers {
-			actual, err := ranger.CoveredByNetworks(network.IPNet)
+			actual, err := ranger.CoveringNetworks(network.IPNet)
 			assert.NoError(t, err)
 			assert.Equal(t, len(expected), len(actual))
 			for _, network := range actual {
