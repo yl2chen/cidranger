@@ -372,6 +372,22 @@ func TestToReplicateIssue(t *testing.T) {
 	}
 }
 
+func TestIPv6MappedIPv4(t *testing.T) {
+	v4Tree := newPrefixTree(rnet.IPv4)
+
+	prefixes := []string{
+		"::ffff:45.164.126.0/120",
+		"80.94.89.0/24",
+	}
+
+	for _, prefix := range prefixes {
+		_, network, _ := net.ParseCIDR(prefix)
+		if err := v4Tree.Insert(NewBasicRangerEntry(*network)); err != nil {
+			t.Errorf("%+v", err)
+		}
+	}
+}
+
 type expectedIPRange struct {
 	start net.IP
 	end   net.IP

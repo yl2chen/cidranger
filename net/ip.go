@@ -176,8 +176,23 @@ type Network struct {
 	Mask   NetworkNumberMask
 }
 
+// Is p all zeros?
+func isZeros(p net.IP) bool {
+	for i := 0; i < len(p); i++ {
+		if p[i] != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // NewNetwork returns Network built using given net.IPNet.
 func NewNetwork(ipNet net.IPNet) Network {
+
+	if len(ipNet.IP) == net.IPv6len && isZeros(ipNet.IP[0:10]) && ipNet.IP[10] == 0xff && ipNet.IP[11] == 0xff {
+		ipNet.Mask = ipNet.Mask[12:]
+	}
+
 	return Network{
 		IPNet:  ipNet,
 		Number: NewNetworkNumber(ipNet.IP),
