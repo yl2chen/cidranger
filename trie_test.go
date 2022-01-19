@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
+	rnet "github.com/Ramzeth/cidranger/net"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	rnet "github.com/yl2chen/cidranger/net"
 )
 
 func getAllByVersion(version rnet.IPVersion) *net.IPNet {
@@ -393,6 +394,51 @@ func TestPrefixTrieContainingNetworks(t *testing.T) {
 			networks, err := trie.ContainingNetworks(tc.ip)
 			assert.NoError(t, err)
 			assert.Equal(t, expectedEntries, networks)
+		})
+	}
+}
+
+func TestPrefixTrie_Adjacient(t *testing.T) {
+	cases := []struct {
+		version  rnet.IPVersion
+		inserts  []string
+		network  string
+		expected string
+		name     string
+	}{
+		{
+			rnet.IPv4,
+			[]string{"192.168.0.0/24"},
+			"192.168.1.0/24",
+			"192.168.0.0/24",
+			"check /24 adjacient",
+		},
+		{
+			rnet.IPv4,
+			[]string{"128.0.0.5/1"},
+			"0.0.5.0/1",
+			"128.0.0.0/1",
+			"check /1 adjacient, with some bits in ip address range",
+		},
+	}
+	log.SetLevel(log.TraceLevel)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			trie := newPrefixTree(tc.version)
+			for _, insert := range tc.inserts {
+				_, network, _ := net.ParseCIDR(insert)
+				err := trie.Insert(NewBasicRangerEntry(*network))
+				assert.NoError(t, err)
+			}
+			_, testNet, _ := net.ParseCIDR(tc.network)
+			entry, err := trie.Adjacient(*testNet)
+			assert.NoError(t, err)
+			netString := ""
+			if entry != nil {
+				entryNet := entry.Network()
+				netString = entryNet.String()
+			}
+			assert.Equal(t, tc.expected, netString)
 		})
 	}
 }

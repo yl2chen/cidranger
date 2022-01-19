@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	rnet "github.com/Ramzeth/cidranger/net"
 	"github.com/stretchr/testify/assert"
-	rnet "github.com/yl2chen/cidranger/net"
 )
 
 /*

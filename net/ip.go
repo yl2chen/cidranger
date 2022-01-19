@@ -88,6 +88,8 @@ func (n NetworkNumber) ToIP() net.IP {
 	}
 	if len(ip) == net.IPv4len {
 		ip = net.IPv4(ip[0], ip[1], ip[2], ip[3])
+		// Convert to 4-byte value, because parseCIDR returns 4-byte IPv4 address - https://github.com/golang/go/issues/41214
+		ip = ip.To4()
 	}
 	return ip
 }
@@ -142,6 +144,20 @@ func (n NetworkNumber) Bit(position uint) (uint32, error) {
 	// Mod 31 to get array index.
 	rShift := position & (BitsPerUint32 - 1)
 	return (n[idx] >> rShift) & 1, nil
+}
+
+// FlipNthBit reverses the bit value at position. Position numbering is LSB 0.
+func (n *NetworkNumber) FlipNthBit(position uint) error {
+	if int(position) > len(*n)*BitsPerUint32-1 {
+		return ErrInvalidBitPosition
+	}
+	idx := len(*n) - 1 - int(position/BitsPerUint32)
+	bitUintPosition := position % 32
+	XORMask := 1 << bitUintPosition
+	//byteNum := net.IPv6len - (position / 8) - 1
+	//	getByteIndexOfBit(bitNum)
+	(*n)[idx] ^= uint32(XORMask)
+	return nil
 }
 
 // LeastCommonBitPosition returns the smallest position of the preceding common

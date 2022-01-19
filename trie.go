@@ -5,7 +5,7 @@ import (
 	"net"
 	"strings"
 
-	rnet "github.com/yl2chen/cidranger/net"
+	rnet "github.com/Ramzeth/cidranger/net"
 )
 
 // prefixTrie is a path-compressed (PC) trie implementation of the
@@ -150,6 +150,37 @@ func (p *prefixTrie) String() string {
 	}
 	return fmt.Sprintf("%s (target_pos:%d:has_entry:%t)%s", p.network,
 		p.targetBitPosition(), p.hasEntry(), strings.Join(children, ""))
+}
+
+// Returns adjacient entries to entry, identifiend by given network. if adjacient exists.
+func (p *prefixTrie) Adjacient(network net.IPNet) (RangerEntry, error) {
+	adjacientNumber := rnet.NewNetworkNumber(network.IP)
+	ones, size := network.Mask.Size()
+	position := size - ones
+	err := adjacientNumber.FlipNthBit(uint(position))
+	if err != nil {
+		return nil, err
+	}
+	adjacientNet := rnet.NewNetwork(net.IPNet{adjacientNumber.ToIP(), network.Mask})
+	return p.adjacient(adjacientNet)
+}
+
+func (p *prefixTrie) adjacient(network rnet.Network) (RangerEntry, error) {
+	if p.hasEntry() && p.network.Equal(network) {
+		return p.entry, nil
+	}
+	if p.targetBitPosition() < 0 {
+		return nil, nil
+	}
+	bit, err := p.targetBitFromIP(network.Number)
+	if err != nil {
+		return nil, err
+	}
+	child := p.children[bit]
+	if child != nil {
+		return child.adjacient(network)
+	}
+	return nil, nil
 }
 
 func (p *prefixTrie) contains(number rnet.NetworkNumber) (bool, error) {

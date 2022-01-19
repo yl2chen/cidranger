@@ -140,3 +140,8 @@ func (b *bruteRanger) getEntriesByVersion(ip net.IP) (map[string]RangerEntry, er
 	}
 	return nil, ErrInvalidNetworkInput
 }
+
+// Just to complete interface
+func (p *bruteRanger) Adjacient(network net.IPNet) (RangerEntry, error) {
+	return nil, nil
+}
