@@ -75,12 +75,12 @@ func (v *versionedRanger) Len() int {
 }
 
 // Len returns number of networks in ranger.
-func (v *versionedRanger) Adjacient(network net.IPNet) (RangerEntry, error) {
+func (v *versionedRanger) Adjacent(network net.IPNet) (RangerEntry, error) {
 	ranger, err := v.getRangerForIP(network.IP)
 	if err != nil {
 		return nil, err
 	}
-	return ranger.Adjacient(network)
+	return ranger.Adjacent(network)
 }
 
 func (v *versionedRanger) getRangerForIP(ip net.IP) (Ranger, error) {

@@ -152,20 +152,22 @@ func (p *prefixTrie) String() string {
 		p.targetBitPosition(), p.hasEntry(), strings.Join(children, ""))
 }
 
-// Returns adjacient entries to entry, identifiend by given network. if adjacient exists.
-func (p *prefixTrie) Adjacient(network net.IPNet) (RangerEntry, error) {
-	adjacientNumber := rnet.NewNetworkNumber(network.IP)
+// Returns adjacent entries to givent entry, identified by given network. Returns nil if adjacent entry not exists.
+// Adjacent networks are networks with only different lower bit in network address, e.g. 192.168.0.0/24 and 192.168.1.0/24
+// That networks can be mergeg, e.g 192.168.0.0/24 + 192.168.1.0/24 = 192.168.0.0/23
+func (p *prefixTrie) Adjacent(network net.IPNet) (RangerEntry, error) {
+	adjacentNumber := rnet.NewNetworkNumber(network.IP)
 	ones, size := network.Mask.Size()
 	position := size - ones
-	err := adjacientNumber.FlipNthBit(uint(position))
+	err := adjacentNumber.FlipNthBit(uint(position))
 	if err != nil {
 		return nil, err
 	}
-	adjacientNet := rnet.NewNetwork(net.IPNet{adjacientNumber.ToIP(), network.Mask})
-	return p.adjacient(adjacientNet)
+	adjacentNet := rnet.NewNetwork(net.IPNet{adjacentNumber.ToIP(), network.Mask})
+	return p.adjacent(adjacentNet)
 }
 
-func (p *prefixTrie) adjacient(network rnet.Network) (RangerEntry, error) {
+func (p *prefixTrie) adjacent(network rnet.Network) (RangerEntry, error) {
 	if p.hasEntry() && p.network.Equal(network) {
 		return p.entry, nil
 	}
@@ -178,7 +180,7 @@ func (p *prefixTrie) adjacient(network rnet.Network) (RangerEntry, error) {
 	}
 	child := p.children[bit]
 	if child != nil {
-		return child.adjacient(network)
+		return child.adjacent(network)
 	}
 	return nil, nil
 }

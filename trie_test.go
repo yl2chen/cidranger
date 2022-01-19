@@ -398,7 +398,7 @@ func TestPrefixTrieContainingNetworks(t *testing.T) {
 	}
 }
 
-func TestPrefixTrie_Adjacient(t *testing.T) {
+func TestPrefixTrie_Adjacent(t *testing.T) {
 	cases := []struct {
 		version  rnet.IPVersion
 		inserts  []string
@@ -411,14 +411,14 @@ func TestPrefixTrie_Adjacient(t *testing.T) {
 			[]string{"192.168.0.0/24"},
 			"192.168.1.0/24",
 			"192.168.0.0/24",
-			"check /24 adjacient",
+			"check /24 adjacent",
 		},
 		{
 			rnet.IPv4,
 			[]string{"128.0.0.5/1"},
 			"0.0.5.0/1",
 			"128.0.0.0/1",
-			"check /1 adjacient, with some bits in ip address range",
+			"check /1 adjacent, with some bits in ip address range",
 		},
 	}
 	log.SetLevel(log.TraceLevel)
@@ -431,7 +431,7 @@ func TestPrefixTrie_Adjacient(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			_, testNet, _ := net.ParseCIDR(tc.network)
-			entry, err := trie.Adjacient(*testNet)
+			entry, err := trie.Adjacent(*testNet)
 			assert.NoError(t, err)
 			netString := ""
 			if entry != nil {

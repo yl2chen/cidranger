@@ -142,6 +142,6 @@ func (b *bruteRanger) getEntriesByVersion(ip net.IP) (map[string]RangerEntry, er
 }
 
 // Just to complete interface
-func (p *bruteRanger) Adjacient(network net.IPNet) (RangerEntry, error) {
+func (p *bruteRanger) Adjacent(network net.IPNet) (RangerEntry, error) {
 	return nil, nil
 }
