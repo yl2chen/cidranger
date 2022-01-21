@@ -420,6 +420,13 @@ func TestPrefixTrie_Adjacent(t *testing.T) {
 			"128.0.0.0/1",
 			"check /1 adjacent, with some bits in ip address range",
 		},
+		{
+			rnet.IPv4,
+			[]string{"0.0.0.0/0"},
+			"0.0.0.0/0",
+			"",
+			"0.0.0.0/0 can't have adjacent",
+		},
 	}
 	log.SetLevel(log.TraceLevel)
 	for _, tc := range cases {
@@ -458,6 +465,13 @@ var coveredNetworkTests = []networkTest{
 		"192.168.0.0/16",
 		[]string{"192.168.0.0/24"},
 		"basic covered networks",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/24"},
+		"192.168.0.0/24",
+		[]string{"192.168.0.0/24"},
+		"covered of equal networks",
 	},
 	{
 		rnet.IPv4,
@@ -522,6 +536,13 @@ var coveringNetworkTests = []networkTest{
 		"192.168.0.0/24",
 		[]string{"192.168.0.0/16"},
 		"basic covering networks",
+	},
+	{
+		rnet.IPv4,
+		[]string{"192.168.0.0/24"},
+		"192.168.0.0/24",
+		[]string{"192.168.0.0/24"},
+		"covering of equal networks",
 	},
 	{
 		rnet.IPv4,

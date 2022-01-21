@@ -158,6 +158,10 @@ func (p *prefixTrie) String() string {
 func (p *prefixTrie) Adjacent(network net.IPNet) (RangerEntry, error) {
 	adjacentNumber := rnet.NewNetworkNumber(network.IP)
 	ones, size := network.Mask.Size()
+	if ones == 0 {
+		// It's a full network, e.g. 0.0.0.0/0, there is no adjacents
+		return nil, nil
+	}
 	position := size - ones
 	err := adjacentNumber.FlipNthBit(uint(position))
 	if err != nil {
