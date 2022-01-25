@@ -3,7 +3,7 @@ package cidranger
 import (
 	"net"
 
-	rnet "github.com/yl2chen/cidranger/net"
+	rnet "github.com/Ramzeth/cidranger/net"
 )
 
 type rangerFactory func(rnet.IPVersion) Ranger
@@ -61,9 +61,26 @@ func (v *versionedRanger) CoveredNetworks(network net.IPNet) ([]RangerEntry, err
 	return ranger.CoveredNetworks(network)
 }
 
+func (v *versionedRanger) CoveringNetworks(network net.IPNet) ([]RangerEntry, error) {
+	ranger, err := v.getRangerForIP(network.IP)
+	if err != nil {
+		return nil, err
+	}
+	return ranger.CoveringNetworks(network)
+}
+
 // Len returns number of networks in ranger.
 func (v *versionedRanger) Len() int {
 	return v.ipV4Ranger.Len() + v.ipV6Ranger.Len()
+}
+
+// Len returns number of networks in ranger.
+func (v *versionedRanger) Adjacent(network net.IPNet) (RangerEntry, error) {
+	ranger, err := v.getRangerForIP(network.IP)
+	if err != nil {
+		return nil, err
+	}
+	return ranger.Adjacent(network)
 }
 
 func (v *versionedRanger) getRangerForIP(ip net.IP) (Ranger, error) {

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
+	rnet "github.com/Ramzeth/cidranger/net"
 	"github.com/stretchr/testify/assert"
-	rnet "github.com/yl2chen/cidranger/net"
 )
 
 /*
@@ -30,6 +30,10 @@ func TestCoveredNetworksAgainstBaseIPv4(t *testing.T) {
 	testCoversNetworksAgainstBase(t, 100000, randomIPNetGenFactory(ipV4AWSRangesIPNets))
 }
 
+func TestCoveringNetworksAgainstBaseIPv4(t *testing.T) {
+	testCoveringNetworksAgainstBase(t, 100000, randomIPNetGenFactory(ipV4AWSRangesIPNets))
+}
+
 // IPv6 spans an extremely large address space (2^128), randomly generated IPs
 // will often fall outside of the test ranges (AWS public CIDR blocks), so it
 // it more meaningful for testing to run from a curated list of IPv6 IPs.
@@ -43,6 +47,10 @@ func TestContainingNetworksAgaistBaseIPv6(t *testing.T) {
 
 func TestCoveredNetworksAgainstBaseIPv6(t *testing.T) {
 	testCoversNetworksAgainstBase(t, 100000, randomIPNetGenFactory(ipV6AWSRangesIPNets))
+}
+
+func TestCoveringNetworksAgainstBaseIPv6(t *testing.T) {
+	testCoveringNetworksAgainstBase(t, 100000, randomIPNetGenFactory(ipV6AWSRangesIPNets))
 }
 
 func testContainsAgainstBase(t *testing.T, iterations int, ipGen ipGenerator) {
@@ -111,6 +119,32 @@ func testCoversNetworksAgainstBase(t *testing.T, iterations int, netGen networkG
 		assert.NoError(t, err)
 		for _, ranger := range rangers {
 			actual, err := ranger.CoveredNetworks(network.IPNet)
+			assert.NoError(t, err)
+			assert.Equal(t, len(expected), len(actual))
+			for _, network := range actual {
+				assert.Contains(t, expected, network)
+			}
+		}
+	}
+}
+
+func testCoveringNetworksAgainstBase(t *testing.T, iterations int, netGen networkGenerator) {
+	if testing.Short() {
+		t.Skip("Skipping memory test in `-short` mode")
+	}
+	rangers := []Ranger{NewPCTrieRanger()}
+	baseRanger := newBruteRanger()
+	for _, ranger := range rangers {
+		configureRangerWithAWSRanges(t, ranger)
+	}
+	configureRangerWithAWSRanges(t, baseRanger)
+
+	for i := 0; i < iterations; i++ {
+		network := netGen()
+		expected, err := baseRanger.CoveringNetworks(network.IPNet)
+		assert.NoError(t, err)
+		for _, ranger := range rangers {
+			actual, err := ranger.CoveringNetworks(network.IPNet)
 			assert.NoError(t, err)
 			assert.Equal(t, len(expected), len(actual))
 			for _, network := range actual {
