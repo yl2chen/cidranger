@@ -1,7 +1,7 @@
 package cidranger
 
 import (
-	"net"
+	"net/netip"
 
 	rnet "github.com/yl2chen/cidranger/net"
 )
@@ -17,24 +17,24 @@ import (
 // and used as the ground truth when running a wider range of 'random' tests on
 // other more sophisticated implementations.
 type bruteRanger struct {
-	ipV4Entries map[string]RangerEntry
-	ipV6Entries map[string]RangerEntry
+	ipV4Entries map[netip.Prefix]RangerEntry
+	ipV6Entries map[netip.Prefix]RangerEntry
 }
 
 // newBruteRanger returns a new Ranger.
 func newBruteRanger() Ranger {
 	return &bruteRanger{
-		ipV4Entries: make(map[string]RangerEntry),
-		ipV6Entries: make(map[string]RangerEntry),
+		ipV4Entries: make(map[netip.Prefix]RangerEntry),
+		ipV6Entries: make(map[netip.Prefix]RangerEntry),
 	}
 }
 
 // Insert inserts a RangerEntry into ranger.
 func (b *bruteRanger) Insert(entry RangerEntry) error {
 	network := entry.Network()
-	key := network.String()
+	key := network
 	if _, found := b.ipV4Entries[key]; !found {
-		entries, err := b.getEntriesByVersion(entry.Network().IP)
+		entries, err := b.getEntriesByVersion(entry.Network().Addr())
 		if err != nil {
 			return err
 		}
@@ -44,12 +44,12 @@ func (b *bruteRanger) Insert(entry RangerEntry) error {
 }
 
 // Remove removes a RangerEntry identified by given network from ranger.
-func (b *bruteRanger) Remove(network net.IPNet) (RangerEntry, error) {
-	networks, err := b.getEntriesByVersion(network.IP)
+func (b *bruteRanger) Remove(network netip.Prefix) (RangerEntry, error) {
+	networks, err := b.getEntriesByVersion(network.Addr())
 	if err != nil {
 		return nil, err
 	}
-	key := network.String()
+	key := network
 	if networkToDelete, found := networks[key]; found {
 		delete(networks, key)
 		return networkToDelete, nil
@@ -59,7 +59,7 @@ func (b *bruteRanger) Remove(network net.IPNet) (RangerEntry, error) {
 
 // Contains returns bool indicating whether given ip is contained by any
 // network in ranger.
-func (b *bruteRanger) Contains(ip net.IP) (bool, error) {
+func (b *bruteRanger) Contains(ip netip.Addr) (bool, error) {
 	entries, err := b.getEntriesByVersion(ip)
 	if err != nil {
 		return false, err
@@ -74,7 +74,7 @@ func (b *bruteRanger) Contains(ip net.IP) (bool, error) {
 }
 
 // ContainingNetworks returns all RangerEntry(s) that given ip contained in.
-func (b *bruteRanger) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
+func (b *bruteRanger) ContainingNetworks(ip netip.Addr) ([]RangerEntry, error) {
 	entries, err := b.getEntriesByVersion(ip)
 	if err != nil {
 		return nil, err
@@ -92,8 +92,8 @@ func (b *bruteRanger) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
 // CoveredNetworks returns the list of RangerEntry(s) the given ipnet
 // covers.  That is, the networks that are completely subsumed by the
 // specified network.
-func (b *bruteRanger) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) {
-	entries, err := b.getEntriesByVersion(network.IP)
+func (b *bruteRanger) CoveredNetworks(network netip.Prefix) ([]RangerEntry, error) {
+	entries, err := b.getEntriesByVersion(network.Addr())
 	if err != nil {
 		return nil, err
 	}
@@ -113,11 +113,11 @@ func (b *bruteRanger) Len() int {
 	return len(b.ipV4Entries) + len(b.ipV6Entries)
 }
 
-func (b *bruteRanger) getEntriesByVersion(ip net.IP) (map[string]RangerEntry, error) {
-	if ip.To4() != nil {
+func (b *bruteRanger) getEntriesByVersion(ip netip.Addr) (map[netip.Prefix]RangerEntry, error) {
+	if ip.Is4() {
 		return b.ipV4Entries, nil
 	}
-	if ip.To16() != nil {
+	if ip.Is6() {
 		return b.ipV6Entries, nil
 	}
 	return nil, ErrInvalidNetworkInput

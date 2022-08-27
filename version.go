@@ -1,7 +1,7 @@
 package cidranger
 
 import (
-	"net"
+	"net/netip"
 
 	rnet "github.com/yl2chen/cidranger/net"
 )
@@ -22,22 +22,22 @@ func newVersionedRanger(factory rangerFactory) Ranger {
 
 func (v *versionedRanger) Insert(entry RangerEntry) error {
 	network := entry.Network()
-	ranger, err := v.getRangerForIP(network.IP)
+	ranger, err := v.getRangerForIP(network.Addr())
 	if err != nil {
 		return err
 	}
 	return ranger.Insert(entry)
 }
 
-func (v *versionedRanger) Remove(network net.IPNet) (RangerEntry, error) {
-	ranger, err := v.getRangerForIP(network.IP)
+func (v *versionedRanger) Remove(network netip.Prefix) (RangerEntry, error) {
+	ranger, err := v.getRangerForIP(network.Addr())
 	if err != nil {
 		return nil, err
 	}
 	return ranger.Remove(network)
 }
 
-func (v *versionedRanger) Contains(ip net.IP) (bool, error) {
+func (v *versionedRanger) Contains(ip netip.Addr) (bool, error) {
 	ranger, err := v.getRangerForIP(ip)
 	if err != nil {
 		return false, err
@@ -45,7 +45,7 @@ func (v *versionedRanger) Contains(ip net.IP) (bool, error) {
 	return ranger.Contains(ip)
 }
 
-func (v *versionedRanger) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
+func (v *versionedRanger) ContainingNetworks(ip netip.Addr) ([]RangerEntry, error) {
 	ranger, err := v.getRangerForIP(ip)
 	if err != nil {
 		return nil, err
@@ -53,8 +53,8 @@ func (v *versionedRanger) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
 	return ranger.ContainingNetworks(ip)
 }
 
-func (v *versionedRanger) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) {
-	ranger, err := v.getRangerForIP(network.IP)
+func (v *versionedRanger) CoveredNetworks(network netip.Prefix) ([]RangerEntry, error) {
+	ranger, err := v.getRangerForIP(network.Addr())
 	if err != nil {
 		return nil, err
 	}
@@ -66,11 +66,10 @@ func (v *versionedRanger) Len() int {
 	return v.ipV4Ranger.Len() + v.ipV6Ranger.Len()
 }
 
-func (v *versionedRanger) getRangerForIP(ip net.IP) (Ranger, error) {
-	if ip.To4() != nil {
+func (v *versionedRanger) getRangerForIP(ip netip.Addr) (Ranger, error) {
+	if ip.Is4() {
 		return v.ipV4Ranger, nil
-	}
-	if ip.To16() != nil {
+	} else if ip.Is6() {
 		return v.ipV6Ranger, nil
 	}
 	return nil, ErrInvalidNetworkNumberInput
