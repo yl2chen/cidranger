@@ -9,7 +9,7 @@ package main
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"os"
 
 	"github.com/yl2chen/cidranger"
@@ -17,12 +17,12 @@ import (
 
 // custom structure that conforms to RangerEntry interface
 type customRangerEntry struct {
-	ipNet net.IPNet
+	ipNet netip.Prefix
 	asn   string
 }
 
 // get function for network
-func (b *customRangerEntry) Network() net.IPNet {
+func (b *customRangerEntry) Network() netip.Prefix {
 	return b.ipNet
 }
 
@@ -37,7 +37,7 @@ func (b *customRangerEntry) Asn() string {
 }
 
 // create customRangerEntry object using net and asn
-func newCustomRangerEntry(ipNet net.IPNet, asn string) cidranger.RangerEntry {
+func newCustomRangerEntry(ipNet netip.Prefix, asn string) cidranger.RangerEntry {
 	return &customRangerEntry{
 		ipNet: ipNet,
 		asn:   asn,
@@ -51,14 +51,14 @@ func main() {
 	ranger := cidranger.NewPCTrieRanger()
 
 	// Load sample data using our custom function
-	_, network, _ := net.ParseCIDR("192.168.1.0/24")
-	ranger.Insert(newCustomRangerEntry(*network, "0001"))
+	network := netip.MustParsePrefix("192.168.1.0/24")
+	ranger.Insert(newCustomRangerEntry(network, "0001"))
 
-	_, network, _ = net.ParseCIDR("128.168.1.0/24")
-	ranger.Insert(newCustomRangerEntry(*network, "0002"))
+	network = netip.MustParsePrefix("128.168.1.0/24")
+	ranger.Insert(newCustomRangerEntry(network, "0002"))
 
 	// Check if IP is contained within ranger
-	contains, err := ranger.Contains(net.ParseIP("128.168.1.7"))
+	contains, err := ranger.Contains(netip.MustParseAddr("128.168.1.7"))
 	if err != nil {
 		fmt.Println("ranger.Contains()", err.Error())
 		os.Exit(1)
@@ -67,7 +67,7 @@ func main() {
 
 	// request networks containing this IP
 	ip := "192.168.1.42"
-	entries, err := ranger.ContainingNetworks(net.ParseIP(ip))
+	entries, err := ranger.ContainingNetworks(netip.MustParseAddr(ip))
 	if err != nil {
 		fmt.Println("ranger.ContainingNetworks()", err.Error())
 		os.Exit(1)

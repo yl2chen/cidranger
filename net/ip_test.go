@@ -2,7 +2,7 @@ package net
 
 import (
 	"math"
-	"net"
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,16 +10,14 @@ import (
 
 func TestNewNetworkNumber(t *testing.T) {
 	cases := []struct {
-		ip   net.IP
+		ip   netip.Addr
 		nn   NetworkNumber
 		name string
 	}{
-		{nil, nil, "nil input"},
-		{net.IP([]byte{1, 1, 1, 1, 1}), nil, "bad input"},
-		{net.ParseIP("128.0.0.0"), NetworkNumber([]uint32{2147483648}), "IPv4"},
+		{netip.MustParseAddr("128.0.0.0"), NetworkNumber([]uint32{0x80_00_00_00}), "IPv4"},
 		{
-			net.ParseIP("2001:0db8::ff00:0042:8329"),
-			NetworkNumber([]uint32{536939960, 0, 65280, 4358953}),
+			netip.MustParseAddr("2001:0db8::ff00:0042:8329"),
+			NetworkNumber([]uint32{0x2001_0db8, 0x0000_0000, 0x0000_ff00, 0x0042_8329}),
 			"IPv6",
 		},
 	}
@@ -55,10 +53,10 @@ func TestNetworkNumberBit(t *testing.T) {
 		ones map[uint]bool
 		name string
 	}{
-		{NewNetworkNumber(net.ParseIP("128.0.0.0")), map[uint]bool{31: true}, "128.0.0.0"},
-		{NewNetworkNumber(net.ParseIP("1.1.1.1")), map[uint]bool{0: true, 8: true, 16: true, 24: true}, "1.1.1.1"},
-		{NewNetworkNumber(net.ParseIP("8000::")), map[uint]bool{127: true}, "8000::"},
-		{NewNetworkNumber(net.ParseIP("8000::8000")), map[uint]bool{127: true, 15: true}, "8000::8000"},
+		{NewNetworkNumber(netip.MustParseAddr("128.0.0.0")), map[uint]bool{31: true}, "128.0.0.0"},
+		{NewNetworkNumber(netip.MustParseAddr("1.1.1.1")), map[uint]bool{0: true, 8: true, 16: true, 24: true}, "1.1.1.1"},
+		{NewNetworkNumber(netip.MustParseAddr("8000::")), map[uint]bool{127: true}, "8000::"},
+		{NewNetworkNumber(netip.MustParseAddr("8000::8000")), map[uint]bool{127: true, 15: true}, "8000::8000"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -82,12 +80,12 @@ func TestNetworkNumberBitError(t *testing.T) {
 		err      error
 		name     string
 	}{
-		{NewNetworkNumber(net.ParseIP("128.0.0.0")), 0, nil, "IPv4 index in bound"},
-		{NewNetworkNumber(net.ParseIP("128.0.0.0")), 31, nil, "IPv4 index in bound"},
-		{NewNetworkNumber(net.ParseIP("128.0.0.0")), 32, ErrInvalidBitPosition, "IPv4 index out of bounds"},
-		{NewNetworkNumber(net.ParseIP("8000::")), 0, nil, "IPv6 index in bound"},
-		{NewNetworkNumber(net.ParseIP("8000::")), 127, nil, "IPv6 index in bound"},
-		{NewNetworkNumber(net.ParseIP("8000::")), 128, ErrInvalidBitPosition, "IPv6 index out of bounds"},
+		{NewNetworkNumber(netip.MustParseAddr("128.0.0.0")), 0, nil, "IPv4 index in bound"},
+		{NewNetworkNumber(netip.MustParseAddr("128.0.0.0")), 31, nil, "IPv4 index in bound"},
+		{NewNetworkNumber(netip.MustParseAddr("128.0.0.0")), 32, ErrInvalidBitPosition, "IPv4 index out of bounds"},
+		{NewNetworkNumber(netip.MustParseAddr("8000::")), 0, nil, "IPv6 index in bound"},
+		{NewNetworkNumber(netip.MustParseAddr("8000::")), 127, nil, "IPv6 index in bound"},
+		{NewNetworkNumber(netip.MustParseAddr("8000::")), 128, ErrInvalidBitPosition, "IPv6 index out of bounds"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -133,8 +131,8 @@ func TestNetworkNumberNext(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			ip := NewNetworkNumber(net.ParseIP(tc.ip))
-			expected := NewNetworkNumber(net.ParseIP(tc.next))
+			ip := NewNetworkNumber(netip.MustParseAddr(tc.ip))
+			expected := NewNetworkNumber(netip.MustParseAddr(tc.next))
 			assert.Equal(t, expected, ip.Next())
 		})
 	}
@@ -156,8 +154,8 @@ func TestNeworkNumberPrevious(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			ip := NewNetworkNumber(net.ParseIP(tc.ip))
-			expected := NewNetworkNumber(net.ParseIP(tc.previous))
+			ip := NewNetworkNumber(netip.MustParseAddr(tc.ip))
+			expected := NewNetworkNumber(netip.MustParseAddr(tc.previous))
 			assert.Equal(t, expected, ip.Previous())
 		})
 	}
@@ -217,10 +215,10 @@ func TestLeastCommonBitPositionForNetworks(t *testing.T) {
 }
 
 func TestNewNetwork(t *testing.T) {
-	_, ipNet, _ := net.ParseCIDR("192.128.0.0/24")
-	n := NewNetwork(*ipNet)
+	ipNet := netip.MustParsePrefix("192.128.0.0/24")
+	n := NewNetwork(ipNet)
 
-	assert.Equal(t, *ipNet, n.IPNet)
+	assert.Equal(t, ipNet, n.IPNet)
 	assert.Equal(t, NetworkNumber{3229614080}, n.Number)
 	assert.Equal(t, NetworkNumberMask{math.MaxUint32 - uint32(math.MaxUint8)}, n.Mask)
 }
@@ -241,10 +239,10 @@ func TestNetworkMasked(t *testing.T) {
 		{"8000:ffff::/96", 16, "8000::/16"},
 	}
 	for _, testcase := range cases {
-		_, network, _ := net.ParseCIDR(testcase.network)
-		_, expected, _ := net.ParseCIDR(testcase.maskedNetwork)
-		n1 := NewNetwork(*network)
-		e1 := NewNetwork(*expected)
+		network := netip.MustParsePrefix(testcase.network)
+		expected := netip.MustParsePrefix(testcase.maskedNetwork)
+		n1 := NewNetwork(network)
+		e1 := NewNetwork(expected)
 		assert.True(t, e1.String() == n1.Masked(testcase.mask).String())
 	}
 }
@@ -263,9 +261,9 @@ func TestNetworkEqual(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, ipNet1, _ := net.ParseCIDR(tc.n1)
-			_, ipNet2, _ := net.ParseCIDR(tc.n2)
-			assert.Equal(t, tc.equal, NewNetwork(*ipNet1).Equal(NewNetwork(*ipNet2)))
+			ipNet1 := netip.MustParsePrefix(tc.n1)
+			ipNet2 := netip.MustParsePrefix(tc.n2)
+			assert.Equal(t, tc.equal, NewNetwork(ipNet1).Equal(NewNetwork(ipNet2)))
 		})
 	}
 }
@@ -282,10 +280,10 @@ func TestNetworkContains(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, net1, _ := net.ParseCIDR(tc.network)
-			network := NewNetwork(*net1)
-			ip := NewNetworkNumber(net.ParseIP(tc.firstIP))
-			lastIP := NewNetworkNumber(net.ParseIP(tc.lastIP))
+			net1 := netip.MustParsePrefix(tc.network)
+			network := NewNetwork(net1)
+			ip := NewNetworkNumber(netip.MustParseAddr(tc.firstIP))
+			lastIP := NewNetworkNumber(netip.MustParseAddr(tc.lastIP))
 			assert.False(t, network.Contains(ip.Previous()))
 			assert.False(t, network.Contains(lastIP.Next()))
 			for ; !ip.Equal(lastIP.Next()); ip = ip.Next() {
@@ -306,9 +304,9 @@ func TestNetworkContainsVersionMismatch(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, net1, _ := net.ParseCIDR(tc.network)
-			network := NewNetwork(*net1)
-			assert.False(t, network.Contains(NewNetworkNumber(net.ParseIP(tc.ip))))
+			net1 := netip.MustParsePrefix(tc.network)
+			network := NewNetwork(net1)
+			assert.False(t, network.Contains(NewNetworkNumber(netip.MustParseAddr(tc.ip))))
 		})
 	}
 }
@@ -331,10 +329,10 @@ func TestNetworkCovers(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, n, _ := net.ParseCIDR(tc.network)
-			network := NewNetwork(*n)
-			_, n, _ = net.ParseCIDR(tc.covers)
-			covers := NewNetwork(*n)
+			n := netip.MustParsePrefix(tc.network)
+			network := NewNetwork(n)
+			n = netip.MustParsePrefix(tc.covers)
+			covers := NewNetwork(n)
 			assert.Equal(t, tc.result, network.Covers(covers))
 		})
 	}
@@ -358,12 +356,10 @@ func TestNetworkLeastCommonBitPosition(t *testing.T) {
 		{"ffff::0/24", "0::1/24", 0, ErrNoGreatestCommonBit, "IPv6 diverge at 1st pos"},
 	}
 	for _, c := range cases {
-		_, cidr1, err := net.ParseCIDR(c.cidr1)
-		assert.NoError(t, err)
-		_, cidr2, err := net.ParseCIDR(c.cidr2)
-		assert.NoError(t, err)
-		n1 := NewNetwork(*cidr1)
-		pos, err := n1.LeastCommonBitPosition(NewNetwork(*cidr2))
+		cidr1 := netip.MustParsePrefix(c.cidr1)
+		cidr2 := netip.MustParsePrefix(c.cidr2)
+		n1 := NewNetwork(cidr1)
+		pos, err := n1.LeastCommonBitPosition(NewNetwork(cidr2))
 		if c.expectedErr != nil {
 			assert.Equal(t, c.expectedErr, err)
 		} else {
@@ -413,7 +409,7 @@ func TestNextIP(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, net.ParseIP(tc.next), NextIP(net.ParseIP(tc.ip)))
+			assert.Equal(t, netip.MustParseAddr(tc.next), NextIP(netip.MustParseAddr(tc.ip)))
 		})
 	}
 }
@@ -434,15 +430,15 @@ func TestPreviousIP(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, net.ParseIP(tc.next), PreviousIP(net.ParseIP(tc.ip)))
+			assert.Equal(t, netip.MustParseAddr(tc.next), PreviousIP(netip.MustParseAddr(tc.ip)))
 		})
 	}
 }
 
 /*
- *********************************
- Benchmarking ip manipulations.
- *********************************
+*********************************
+Benchmarking ip manipulations.
+*********************************
 */
 func BenchmarkNetworkNumberBitIPv4(b *testing.B) {
 	benchmarkNetworkNumberBit(b, "52.95.110.1", 6)
@@ -476,34 +472,34 @@ func BenchmarkNetworkEqualIPv6(b *testing.B) {
 }
 
 func benchmarkNetworkNumberBit(b *testing.B, ip string, pos uint) {
-	nn := NewNetworkNumber(net.ParseIP(ip))
+	nn := NewNetworkNumber(netip.MustParseAddr(ip))
 	for n := 0; n < b.N; n++ {
 		nn.Bit(pos)
 	}
 }
 
 func benchmarkNetworkNumberEqual(b *testing.B, ip1 string, ip2 string) {
-	nn1 := NewNetworkNumber(net.ParseIP(ip1))
-	nn2 := NewNetworkNumber(net.ParseIP(ip2))
+	nn1 := NewNetworkNumber(netip.MustParseAddr(ip1))
+	nn2 := NewNetworkNumber(netip.MustParseAddr(ip2))
 	for n := 0; n < b.N; n++ {
 		nn1.Equal(nn2)
 	}
 }
 
 func benchmarkNetworkContains(b *testing.B, cidr string, ip string) {
-	nn := NewNetworkNumber(net.ParseIP(ip))
-	_, ipNet, _ := net.ParseCIDR(cidr)
-	network := NewNetwork(*ipNet)
+	nn := NewNetworkNumber(netip.MustParseAddr(ip))
+	ipNet := netip.MustParsePrefix(cidr)
+	network := NewNetwork(ipNet)
 	for n := 0; n < b.N; n++ {
 		network.Contains(nn)
 	}
 }
 
 func benchmarkNetworkEqual(b *testing.B, net1 string, net2 string) {
-	_, ipNet1, _ := net.ParseCIDR(net1)
-	_, ipNet2, _ := net.ParseCIDR(net2)
-	n1 := NewNetwork(*ipNet1)
-	n2 := NewNetwork(*ipNet2)
+	ipNet1 := netip.MustParsePrefix(net1)
+	ipNet2 := netip.MustParsePrefix(net2)
+	n1 := NewNetwork(ipNet1)
+	n2 := NewNetwork(ipNet2)
 	for n := 0; n < b.N; n++ {
 		n1.Equal(n2)
 	}

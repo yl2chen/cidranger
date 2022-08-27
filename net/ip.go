@@ -4,11 +4,10 @@ Package net provides utility functions for working with IPs (net.IP).
 package net
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"math"
-	"net"
+	"net/netip"
 )
 
 // IPVersion is version of IP address.
@@ -34,7 +33,7 @@ var ErrVersionMismatch = fmt.Errorf("Network input version mismatch")
 
 // ErrNoGreatestCommonBit is an error returned when no greatest common bit
 // exists for the cidr ranges.
-var ErrNoGreatestCommonBit = fmt.Errorf("No greatest common bit")
+var ErrNoGreatestCommonBit = fmt.Errorf("no greatest common bit")
 
 // NetworkNumber represents an IP address using uint32 as internal storage.
 // IPv4 usings 1 uint32, while IPv6 uses 4 uint32.
@@ -42,23 +41,20 @@ type NetworkNumber []uint32
 
 // NewNetworkNumber returns a equivalent NetworkNumber to given IP address,
 // return nil if ip is neither IPv4 nor IPv6.
-func NewNetworkNumber(ip net.IP) NetworkNumber {
-	if ip == nil {
-		return nil
-	}
-	coercedIP := ip.To4()
-	parts := 1
-	if coercedIP == nil {
-		coercedIP = ip.To16()
+func NewNetworkNumber(ip netip.Addr) NetworkNumber {
+	var parts int
+	if ip.Is4() {
+		parts = 1
+	} else if ip.Is6() {
 		parts = 4
-	}
-	if coercedIP == nil {
+	} else {
 		return nil
 	}
+
 	nn := make(NetworkNumber, parts)
+	sl := ip.AsSlice()
 	for i := 0; i < parts; i++ {
-		idx := i * net.IPv4len
-		nn[i] = binary.BigEndian.Uint32(coercedIP[idx : idx+net.IPv4len])
+		nn[i] = binary.BigEndian.Uint32(sl[i*4 : (i+1)*4])
 	}
 	return nn
 }
@@ -80,15 +76,12 @@ func (n NetworkNumber) ToV6() NetworkNumber {
 }
 
 // ToIP returns equivalent net.IP.
-func (n NetworkNumber) ToIP() net.IP {
-	ip := make(net.IP, len(n)*BytePerUint32)
+func (n NetworkNumber) ToIP() netip.Addr {
+	sl := make([]byte, len(n)*BytePerUint32)
 	for i := 0; i < len(n); i++ {
-		idx := i * net.IPv4len
-		binary.BigEndian.PutUint32(ip[idx:idx+net.IPv4len], n[i])
+		binary.BigEndian.PutUint32(sl[i*4:(i+1)*4], n[i])
 	}
-	if len(ip) == net.IPv4len {
-		ip = net.IPv4(ip[0], ip[1], ip[2], ip[3])
-	}
+	ip, _ := netip.AddrFromSlice(sl)
 	return ip
 }
 
@@ -171,27 +164,44 @@ func (n NetworkNumber) LeastCommonBitPosition(n1 NetworkNumber) (uint, error) {
 
 // Network represents a block of network numbers, also known as CIDR.
 type Network struct {
-	net.IPNet
+	IPNet  netip.Prefix
 	Number NetworkNumber
 	Mask   NetworkNumberMask
 }
 
 // NewNetwork returns Network built using given net.IPNet.
-func NewNetwork(ipNet net.IPNet) Network {
+func NewNetwork(ipNet netip.Prefix) Network {
 	return Network{
-		IPNet:  ipNet,
-		Number: NewNetworkNumber(ipNet.IP),
-		Mask:   NetworkNumberMask(NewNetworkNumber(net.IP(ipNet.Mask))),
+		IPNet:  ipNet, //.Masked(),
+		Number: NewNetworkNumber(ipNet.Addr()),
+		Mask:   bitsToMask(ipNet.Bits(), ipNet.Addr().BitLen()),
 	}
+}
+
+func bitsToMask(ones, bits int) NetworkNumberMask {
+	parts := bits / BitsPerUint32
+	sl := make([]uint32, parts)
+	for i := 0; i < parts; i++ {
+		if ones == 0 {
+			break
+		}
+		var maskBits uint32
+		if ones >= 32 {
+			maskBits = 0xffff_ffff
+			ones -= 32
+		} else {
+			maskBits = ((1 << ones) - 1) << (32 - ones)
+			ones = 0
+		}
+		sl[i] = maskBits
+	}
+
+	return NetworkNumberMask(sl)
 }
 
 // Masked returns a new network conforming to new mask.
 func (n Network) Masked(ones int) Network {
-	mask := net.CIDRMask(ones, len(n.Number)*BitsPerUint32)
-	return NewNetwork(net.IPNet{
-		IP:   n.IP.Mask(mask),
-		Mask: mask,
-	})
+	return NewNetwork(netip.PrefixFrom(n.IPNet.Addr(), ones).Masked())
 }
 
 // Contains returns true if NetworkNumber is in range of Network, false
@@ -214,30 +224,33 @@ func (n Network) Covers(o Network) bool {
 	if len(n.Number) != len(o.Number) {
 		return false
 	}
-	nMaskSize, _ := n.IPNet.Mask.Size()
-	oMaskSize, _ := o.IPNet.Mask.Size()
+	nMaskSize := n.IPNet.Bits()
+	oMaskSize := o.IPNet.Bits()
 	return n.Contains(o.Number) && nMaskSize <= oMaskSize
 }
 
 // LeastCommonBitPosition returns the smallest position of the preceding common
 // bits of the 2 networks, and returns an error ErrNoGreatestCommonBit
 // if the two network number diverges from the first bit.
-func (n Network) LeastCommonBitPosition(n1 Network) (uint, error) {
-	maskSize, _ := n.IPNet.Mask.Size()
-	if maskSize1, _ := n1.IPNet.Mask.Size(); maskSize1 < maskSize {
+func (n Network) LeastCommonBitPosition(n1 Network) (max uint, err error) {
+	maskSize := n.IPNet.Bits()
+	if maskSize1 := n1.IPNet.Bits(); maskSize1 < maskSize {
 		maskSize = maskSize1
 	}
-	maskPosition := len(n1.Number)*BitsPerUint32 - maskSize
-	lcb, err := n.Number.LeastCommonBitPosition(n1.Number)
-	if err != nil {
+
+	if max, err = n.Number.LeastCommonBitPosition(n1.Number); err != nil {
 		return 0, err
 	}
-	return uint(math.Max(float64(maskPosition), float64(lcb))), nil
+	if maskPosition := uint(len(n1.Number)*BitsPerUint32 - maskSize); maskPosition > max {
+		max = maskPosition
+	}
+
+	return max, nil
 }
 
 // Equal is the equality test for 2 networks.
 func (n Network) Equal(n1 Network) bool {
-	return bytes.Equal(n.IPNet.IP, n1.IPNet.IP) && bytes.Equal(n.IPNet.Mask, n1.IPNet.Mask)
+	return n.IPNet == n1.IPNet
 }
 
 func (n Network) String() string {
@@ -263,11 +276,11 @@ func (m NetworkNumberMask) Mask(n NetworkNumber) (NetworkNumber, error) {
 }
 
 // NextIP returns the next sequential ip.
-func NextIP(ip net.IP) net.IP {
+func NextIP(ip netip.Addr) netip.Addr {
 	return NewNetworkNumber(ip).Next().ToIP()
 }
 
 // PreviousIP returns the previous sequential ip.
-func PreviousIP(ip net.IP) net.IP {
+func PreviousIP(ip netip.Addr) netip.Addr {
 	return NewNetworkNumber(ip).Previous().ToIP()
 }

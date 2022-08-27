@@ -2,7 +2,7 @@ package cidranger
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 	"strings"
 
 	rnet "github.com/yl2chen/cidranger/net"
@@ -48,21 +48,22 @@ type prefixTrie struct {
 
 // newPrefixTree creates a new prefixTrie.
 func newPrefixTree(version rnet.IPVersion) Ranger {
-	_, rootNet, _ := net.ParseCIDR("0.0.0.0/0")
+	rootStr := "0.0.0.0/0"
 	if version == rnet.IPv6 {
-		_, rootNet, _ = net.ParseCIDR("0::0/0")
+		rootStr = "0::0/0"
 	}
+	rootNet := netip.MustParsePrefix(rootStr)
 	return &prefixTrie{
-		children:       make([]*prefixTrie, 2, 2),
+		children:       make([]*prefixTrie, 2),
 		numBitsSkipped: 0,
 		numBitsHandled: 1,
-		network:        rnet.NewNetwork(*rootNet),
+		network:        rnet.NewNetwork(rootNet),
 	}
 }
 
 func newPathprefixTrie(network rnet.Network, numBitsSkipped uint) *prefixTrie {
 	path := &prefixTrie{
-		children:       make([]*prefixTrie, 2, 2),
+		children:       make([]*prefixTrie, 2),
 		numBitsSkipped: numBitsSkipped,
 		numBitsHandled: 1,
 		network:        network.Masked(int(numBitsSkipped)),
@@ -71,7 +72,7 @@ func newPathprefixTrie(network rnet.Network, numBitsSkipped uint) *prefixTrie {
 }
 
 func newEntryTrie(network rnet.Network, entry RangerEntry) *prefixTrie {
-	ones, _ := network.IPNet.Mask.Size()
+	ones := network.IPNet.Bits()
 	leaf := newPathprefixTrie(network, uint(ones))
 	leaf.entry = entry
 	return leaf
@@ -80,7 +81,7 @@ func newEntryTrie(network rnet.Network, entry RangerEntry) *prefixTrie {
 // Insert inserts a RangerEntry into prefix trie.
 func (p *prefixTrie) Insert(entry RangerEntry) error {
 	network := entry.Network()
-	sizeIncreased, err := p.insert(rnet.NewNetwork(network), entry)
+	sizeIncreased, err := p.insert(rnet.NewNetwork(network.Masked()), entry)
 	if sizeIncreased {
 		p.size++
 	}
@@ -88,8 +89,8 @@ func (p *prefixTrie) Insert(entry RangerEntry) error {
 }
 
 // Remove removes RangerEntry identified by given network from trie.
-func (p *prefixTrie) Remove(network net.IPNet) (RangerEntry, error) {
-	entry, err := p.remove(rnet.NewNetwork(network))
+func (p *prefixTrie) Remove(network netip.Prefix) (RangerEntry, error) {
+	entry, err := p.remove(rnet.NewNetwork(network.Masked()))
 	if entry != nil {
 		p.size--
 	}
@@ -98,7 +99,7 @@ func (p *prefixTrie) Remove(network net.IPNet) (RangerEntry, error) {
 
 // Contains returns boolean indicating whether given ip is contained in any
 // of the inserted networks.
-func (p *prefixTrie) Contains(ip net.IP) (bool, error) {
+func (p *prefixTrie) Contains(ip netip.Addr) (bool, error) {
 	nn := rnet.NewNetworkNumber(ip)
 	if nn == nil {
 		return false, ErrInvalidNetworkNumberInput
@@ -108,7 +109,7 @@ func (p *prefixTrie) Contains(ip net.IP) (bool, error) {
 
 // ContainingNetworks returns the list of RangerEntry(s) the given ip is
 // contained in in ascending prefix order.
-func (p *prefixTrie) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
+func (p *prefixTrie) ContainingNetworks(ip netip.Addr) ([]RangerEntry, error) {
 	nn := rnet.NewNetworkNumber(ip)
 	if nn == nil {
 		return nil, ErrInvalidNetworkNumberInput
@@ -119,7 +120,7 @@ func (p *prefixTrie) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
 // CoveredNetworks returns the list of RangerEntry(s) the given ipnet
 // covers.  That is, the networks that are completely subsumed by the
 // specified network.
-func (p *prefixTrie) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) {
+func (p *prefixTrie) CoveredNetworks(network netip.Prefix) ([]RangerEntry, error) {
 	net := rnet.NewNetwork(network)
 	return p.coveredNetworks(net)
 }
@@ -239,6 +240,9 @@ func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) (bool, erro
 	// Check whether it is necessary to insert additional path prefix between current trie and existing child,
 	// in the case that inserted network diverges on its path to existing child.
 	lcb, err := network.LeastCommonBitPosition(existingChild.network)
+	if err != nil {
+		return false, err
+	}
 	divergingBitPos := int(lcb) - 1
 	if divergingBitPos > existingChild.targetBitPosition() {
 		pathPrefix := newPathprefixTrie(network, p.totalNumberOfBits()-lcb)

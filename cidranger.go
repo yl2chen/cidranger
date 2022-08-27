@@ -41,14 +41,14 @@ package cidranger
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 )
 
 // ErrInvalidNetworkInput is returned upon invalid network input.
-var ErrInvalidNetworkInput = fmt.Errorf("Invalid network input")
+var ErrInvalidNetworkInput = fmt.Errorf("invalid network input")
 
 // ErrInvalidNetworkNumberInput is returned upon invalid network input.
-var ErrInvalidNetworkNumberInput = fmt.Errorf("Invalid network number input")
+var ErrInvalidNetworkNumberInput = fmt.Errorf("invalid network number input")
 
 // AllIPv4 is a IPv4 CIDR that contains all networks
 var AllIPv4 = parseCIDRUnsafe("0.0.0.0/0")
@@ -56,39 +56,39 @@ var AllIPv4 = parseCIDRUnsafe("0.0.0.0/0")
 // AllIPv6 is a IPv6 CIDR that contains all networks
 var AllIPv6 = parseCIDRUnsafe("0::0/0")
 
-func parseCIDRUnsafe(s string) *net.IPNet {
-	_, cidr, _ := net.ParseCIDR(s)
+func parseCIDRUnsafe(s string) netip.Prefix {
+	cidr, _ := netip.ParsePrefix(s)
 	return cidr
 }
 
 // RangerEntry is an interface for insertable entry into a Ranger.
 type RangerEntry interface {
-	Network() net.IPNet
+	Network() netip.Prefix
 }
 
 type basicRangerEntry struct {
-	ipNet net.IPNet
+	ipNet netip.Prefix
 }
 
-func (b *basicRangerEntry) Network() net.IPNet {
+func (b *basicRangerEntry) Network() netip.Prefix {
 	return b.ipNet
 }
 
 // NewBasicRangerEntry returns a basic RangerEntry that only stores the network
 // itself.
-func NewBasicRangerEntry(ipNet net.IPNet) RangerEntry {
+func NewBasicRangerEntry(ipNet netip.Prefix) RangerEntry {
 	return &basicRangerEntry{
-		ipNet: ipNet,
+		ipNet: ipNet, //.Masked(),
 	}
 }
 
 // Ranger is an interface for cidr block containment lookups.
 type Ranger interface {
 	Insert(entry RangerEntry) error
-	Remove(network net.IPNet) (RangerEntry, error)
-	Contains(ip net.IP) (bool, error)
-	ContainingNetworks(ip net.IP) ([]RangerEntry, error)
-	CoveredNetworks(network net.IPNet) ([]RangerEntry, error)
+	Remove(network netip.Prefix) (RangerEntry, error)
+	Contains(ip netip.Addr) (bool, error)
+	ContainingNetworks(ip netip.Addr) ([]RangerEntry, error)
+	CoveredNetworks(network netip.Prefix) ([]RangerEntry, error)
 	Len() int
 }
 
