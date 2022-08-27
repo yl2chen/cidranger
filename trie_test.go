@@ -2,8 +2,9 @@ package cidranger
 
 import (
 	"encoding/binary"
+	"math"
 	"math/rand"
-	"net"
+	"net/netip"
 	"runtime"
 	"testing"
 	"time"
@@ -12,7 +13,7 @@ import (
 	rnet "github.com/yl2chen/cidranger/net"
 )
 
-func getAllByVersion(version rnet.IPVersion) *net.IPNet {
+func getAllByVersion(version rnet.IPVersion) netip.Prefix {
 	if version == rnet.IPv6 {
 		return AllIPv6
 	}
@@ -74,21 +75,21 @@ func TestPrefixTrieInsert(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			trie := newPrefixTree(tc.version).(*prefixTrie)
 			for _, insert := range tc.inserts {
-				_, network, _ := net.ParseCIDR(insert)
-				err := trie.Insert(NewBasicRangerEntry(*network))
+				network := netip.MustParsePrefix(insert)
+				err := trie.Insert(NewBasicRangerEntry(network))
 				assert.NoError(t, err)
 			}
 
 			assert.Equal(t, len(tc.expectedNetworksInDepthOrder), trie.Len(), "trie size should match")
 
-			allNetworks, err := trie.CoveredNetworks(*getAllByVersion(tc.version))
+			allNetworks, err := trie.CoveredNetworks(getAllByVersion(tc.version))
 			assert.Nil(t, err)
 			assert.Equal(t, len(allNetworks), trie.Len(), "trie size should match")
 
 			walk := trie.walkDepth()
 			for _, network := range tc.expectedNetworksInDepthOrder {
-				_, ipnet, _ := net.ParseCIDR(network)
-				expected := NewBasicRangerEntry(*ipnet)
+				ipnet := netip.MustParsePrefix(network)
+				expected := NewBasicRangerEntry(ipnet)
 				actual := <-walk
 				assert.Equal(t, expected, actual)
 			}
@@ -105,8 +106,8 @@ func TestPrefixTrieString(t *testing.T) {
 	inserts := []string{"192.168.0.1/24", "192.168.1.1/24", "192.168.1.1/30"}
 	trie := newPrefixTree(rnet.IPv4).(*prefixTrie)
 	for _, insert := range inserts {
-		_, network, _ := net.ParseCIDR(insert)
-		trie.Insert(NewBasicRangerEntry(*network))
+		network := netip.MustParsePrefix(insert)
+		trie.Insert(NewBasicRangerEntry(network))
 	}
 	expected := `0.0.0.0/0 (target_pos:31:has_entry:false)
 | 1--> 192.168.0.0/23 (target_pos:8:has_entry:false)
@@ -206,17 +207,17 @@ func TestPrefixTrieRemove(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			trie := newPrefixTree(tc.version).(*prefixTrie)
 			for _, insert := range tc.inserts {
-				_, network, _ := net.ParseCIDR(insert)
-				err := trie.Insert(NewBasicRangerEntry(*network))
+				network := netip.MustParsePrefix(insert)
+				err := trie.Insert(NewBasicRangerEntry(network))
 				assert.NoError(t, err)
 			}
 			for i, remove := range tc.removes {
-				_, network, _ := net.ParseCIDR(remove)
-				removed, err := trie.Remove(*network)
+				network := netip.MustParsePrefix(remove)
+				removed, err := trie.Remove(network)
 				assert.NoError(t, err)
 				if str := tc.expectedRemoves[i]; str != "" {
-					_, ipnet, _ := net.ParseCIDR(str)
-					expected := NewBasicRangerEntry(*ipnet)
+					ipnet := netip.MustParsePrefix(str)
+					expected := NewBasicRangerEntry(ipnet)
 					assert.Equal(t, expected, removed)
 				} else {
 					assert.Nil(t, removed)
@@ -225,14 +226,14 @@ func TestPrefixTrieRemove(t *testing.T) {
 
 			assert.Equal(t, len(tc.expectedNetworksInDepthOrder), trie.Len(), "trie size should match after revmoval")
 
-			allNetworks, err := trie.CoveredNetworks(*getAllByVersion(tc.version))
+			allNetworks, err := trie.CoveredNetworks(getAllByVersion(tc.version))
 			assert.Nil(t, err)
 			assert.Equal(t, len(allNetworks), trie.Len(), "trie size should match")
 
 			walk := trie.walkDepth()
 			for _, network := range tc.expectedNetworksInDepthOrder {
-				_, ipnet, _ := net.ParseCIDR(network)
-				expected := NewBasicRangerEntry(*ipnet)
+				ipnet := netip.MustParsePrefix(network)
+				expected := NewBasicRangerEntry(ipnet)
 				actual := <-walk
 				assert.Equal(t, expected, actual)
 			}
@@ -251,21 +252,21 @@ func TestToReplicateIssue(t *testing.T) {
 	cases := []struct {
 		version  rnet.IPVersion
 		inserts  []string
-		ip       net.IP
+		ip       netip.Addr
 		networks []string
 		name     string
 	}{
 		{
 			rnet.IPv4,
 			[]string{"192.168.0.1/32"},
-			net.ParseIP("192.168.0.1"),
+			netip.MustParseAddr("192.168.0.1"),
 			[]string{"192.168.0.1/32"},
 			"basic containing network for /32 mask",
 		},
 		{
 			rnet.IPv6,
 			[]string{"a::1/128"},
-			net.ParseIP("a::1"),
+			netip.MustParseAddr("a::1"),
 			[]string{"a::1/128"},
 			"basic containing network for /128 mask",
 		},
@@ -274,14 +275,14 @@ func TestToReplicateIssue(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			trie := newPrefixTree(tc.version)
 			for _, insert := range tc.inserts {
-				_, network, _ := net.ParseCIDR(insert)
-				err := trie.Insert(NewBasicRangerEntry(*network))
+				network := netip.MustParsePrefix(insert)
+				err := trie.Insert(NewBasicRangerEntry(network))
 				assert.NoError(t, err)
 			}
 			expectedEntries := []RangerEntry{}
 			for _, network := range tc.networks {
-				_, net, _ := net.ParseCIDR(network)
-				expectedEntries = append(expectedEntries, NewBasicRangerEntry(*net))
+				net := netip.MustParsePrefix(network)
+				expectedEntries = append(expectedEntries, NewBasicRangerEntry(net))
 			}
 			contains, err := trie.Contains(tc.ip)
 			assert.NoError(t, err)
@@ -294,8 +295,8 @@ func TestToReplicateIssue(t *testing.T) {
 }
 
 type expectedIPRange struct {
-	start net.IP
-	end   net.IP
+	start netip.Addr
+	end   netip.Addr
 }
 
 func TestPrefixTrieContains(t *testing.T) {
@@ -309,7 +310,7 @@ func TestPrefixTrieContains(t *testing.T) {
 			rnet.IPv4,
 			[]string{"192.168.0.0/24"},
 			[]expectedIPRange{
-				{net.ParseIP("192.168.0.0"), net.ParseIP("192.168.1.0")},
+				{netip.MustParseAddr("192.168.0.0"), netip.MustParseAddr("192.168.1.0")},
 			},
 			"basic contains",
 		},
@@ -317,8 +318,8 @@ func TestPrefixTrieContains(t *testing.T) {
 			rnet.IPv4,
 			[]string{"192.168.0.0/24", "128.168.0.0/24"},
 			[]expectedIPRange{
-				{net.ParseIP("192.168.0.0"), net.ParseIP("192.168.1.0")},
-				{net.ParseIP("128.168.0.0"), net.ParseIP("128.168.1.0")},
+				{netip.MustParseAddr("192.168.0.0"), netip.MustParseAddr("192.168.1.0")},
+				{netip.MustParseAddr("128.168.0.0"), netip.MustParseAddr("128.168.1.0")},
 			},
 			"multiple ranges contains",
 		},
@@ -328,15 +329,14 @@ func TestPrefixTrieContains(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			trie := newPrefixTree(tc.version)
 			for _, insert := range tc.inserts {
-				_, network, _ := net.ParseCIDR(insert)
-				err := trie.Insert(NewBasicRangerEntry(*network))
+				network := netip.MustParsePrefix(insert)
+				err := trie.Insert(NewBasicRangerEntry(network))
 				assert.NoError(t, err)
 			}
 			for _, expectedIPRange := range tc.expectedIPs {
 				var contains bool
 				var err error
-				start := expectedIPRange.start
-				for ; !expectedIPRange.end.Equal(start); start = rnet.NextIP(start) {
+				for start := expectedIPRange.start; expectedIPRange.end != start; start = rnet.NextIP(start) {
 					contains, err = trie.Contains(start)
 					assert.NoError(t, err)
 					assert.True(t, contains)
@@ -358,21 +358,21 @@ func TestPrefixTrieContainingNetworks(t *testing.T) {
 	cases := []struct {
 		version  rnet.IPVersion
 		inserts  []string
-		ip       net.IP
+		ip       netip.Addr
 		networks []string
 		name     string
 	}{
 		{
 			rnet.IPv4,
 			[]string{"192.168.0.0/24"},
-			net.ParseIP("192.168.0.1"),
+			netip.MustParseAddr("192.168.0.1"),
 			[]string{"192.168.0.0/24"},
 			"basic containing networks",
 		},
 		{
 			rnet.IPv4,
 			[]string{"192.168.0.0/24", "192.168.0.0/25"},
-			net.ParseIP("192.168.0.1"),
+			netip.MustParseAddr("192.168.0.1"),
 			[]string{"192.168.0.0/24", "192.168.0.0/25"},
 			"inclusive networks",
 		},
@@ -381,14 +381,14 @@ func TestPrefixTrieContainingNetworks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			trie := newPrefixTree(tc.version)
 			for _, insert := range tc.inserts {
-				_, network, _ := net.ParseCIDR(insert)
-				err := trie.Insert(NewBasicRangerEntry(*network))
+				network := netip.MustParsePrefix(insert)
+				err := trie.Insert(NewBasicRangerEntry(network))
 				assert.NoError(t, err)
 			}
 			expectedEntries := []RangerEntry{}
 			for _, network := range tc.networks {
-				_, net, _ := net.ParseCIDR(network)
-				expectedEntries = append(expectedEntries, NewBasicRangerEntry(*net))
+				net := netip.MustParsePrefix(network)
+				expectedEntries = append(expectedEntries, NewBasicRangerEntry(net))
 			}
 			networks, err := trie.ContainingNetworks(tc.ip)
 			assert.NoError(t, err)
@@ -474,18 +474,18 @@ func TestPrefixTrieCoveredNetworks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			trie := newPrefixTree(tc.version)
 			for _, insert := range tc.inserts {
-				_, network, _ := net.ParseCIDR(insert)
-				err := trie.Insert(NewBasicRangerEntry(*network))
+				network := netip.MustParsePrefix(insert)
+				err := trie.Insert(NewBasicRangerEntry(network))
 				assert.NoError(t, err)
 			}
 			var expectedEntries []RangerEntry
 			for _, network := range tc.networks {
-				_, net, _ := net.ParseCIDR(network)
+				net := netip.MustParsePrefix(network)
 				expectedEntries = append(expectedEntries,
-					NewBasicRangerEntry(*net))
+					NewBasicRangerEntry(net))
 			}
-			_, snet, _ := net.ParseCIDR(tc.search)
-			networks, err := trie.CoveredNetworks(*snet)
+			snet := netip.MustParsePrefix(tc.search)
+			networks, err := trie.CoveredNetworks(snet)
 			assert.NoError(t, err)
 			assert.Equal(t, expectedEntries, networks)
 		})
@@ -517,13 +517,13 @@ func TestTrieMemUsage(t *testing.T) {
 		assert.Less(t, 0, trie.Len(), "Len should > 0")
 		assert.LessOrEqualf(t, trie.Len(), numIPs, "Len should <= %d", numIPs)
 
-		allNetworks, err := trie.CoveredNetworks(*getAllByVersion(rnet.IPv4))
+		allNetworks, err := trie.CoveredNetworks(getAllByVersion(rnet.IPv4))
 		assert.Nil(t, err)
 		assert.Equal(t, len(allNetworks), trie.Len(), "trie size should match")
 
 		// Remove networks.
-		_, all, _ := net.ParseCIDR("0.0.0.0/0")
-		ll, _ := trie.CoveredNetworks(*all)
+		all := netip.MustParsePrefix("0.0.0.0/0")
+		ll, _ := trie.CoveredNetworks(all)
 		for i := 0; i < len(ll); i++ {
 			trie.Remove(ll[i].Network())
 		}
@@ -546,22 +546,20 @@ func TestTrieMemUsage(t *testing.T) {
 	assert.LessOrEqual(t, float64(baseLineHeap), float64(totalHeapAllocOverRuns/uint64(runs))*thresh)
 }
 
-func GenLeafIPNet(ip net.IP) net.IPNet {
-	return net.IPNet{
-		IP:   ip,
-		Mask: net.CIDRMask(32, 32),
-	}
+func GenLeafIPNet(ip netip.Addr) netip.Prefix {
+	return netip.PrefixFrom(ip, 32)
 }
 
 // GenIPV4 generates an IPV4 address
-func GenIPV4() net.IP {
+func GenIPV4() netip.Addr {
 	rand.Seed(time.Now().UnixNano())
 	nn := rand.Uint32()
-	if nn < 4294967295 {
+	if nn < math.MaxUint32 {
 		nn++
 	}
-	ip := make(net.IP, 4)
-	binary.BigEndian.PutUint32(ip, uint32(nn))
+	sl := make([]byte, 4)
+	binary.BigEndian.PutUint32(sl, uint32(nn))
+	ip, _ := netip.AddrFromSlice(sl)
 	return ip
 }
 
