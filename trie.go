@@ -124,6 +124,21 @@ func (p *prefixTrie) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) {
 	return p.coveredNetworks(net)
 }
 
+// CoveringNetworks returns the list of RangerEntry(s) covering the given ipnet
+// That is, the networks that are completely subsumed by the
+// specified network.
+func (p *prefixTrie) CoveringNetworks(network net.IPNet) ([]RangerEntry, error) {
+	net := rnet.NewNetwork(network)
+	return p.coveringNetworks(net)
+}
+
+// CoveringOrCoveredNetworks returns the list of RangerEntry(s) the given ipnet
+// covers or list of RangerEntry(s) covered by the ipnet.
+func (p *prefixTrie) CoveringOrCoveredNetworks(network net.IPNet) ([]RangerEntry, error) {
+	net := rnet.NewNetwork(network)
+	return p.coveringOrCoveredNetworks(net)
+}
+
 // Len returns number of networks in ranger.
 func (p *prefixTrie) Len() int {
 	return p.size
@@ -212,6 +227,54 @@ func (p *prefixTrie) coveredNetworks(network rnet.Network) ([]RangerEntry, error
 		child := p.children[bit]
 		if child != nil {
 			return child.coveredNetworks(network)
+		}
+	}
+	return results, nil
+}
+
+func (p *prefixTrie) coveringOrCoveredNetworks(network rnet.Network) ([]RangerEntry, error) {
+	res, err := p.coveredNetworks(network)
+	res2, err2 := p.coveringNetworks(network)
+	var ones map[int]bool
+	ones = make(map[int]bool)
+	if err != nil {
+		return res, err
+	}
+	if err2 != nil {
+		return res2, err2
+	}
+	for _, r := range res {
+		one, _ := r.Network().Mask.Size()
+		ones[one] = true
+	}
+	for _, r := range res2 {
+		one, _ := r.Network().Mask.Size()
+		if _, ok := ones[one]; ok == false {
+			res = append(res, r)
+		}
+	}
+	return res, nil
+}
+func (p *prefixTrie) coveringNetworks(network rnet.Network) ([]RangerEntry, error) {
+	var results []RangerEntry
+	n_ones, _ := network.IPNet.Mask.Size()
+	p_ones, _ := p.network.IPNet.Mask.Size()
+	if p_ones > n_ones {
+		return results, nil
+	}
+	if p.hasEntry() && p.network.Covers(network) {
+		results = append(results, p.entry)
+	}
+	if p.targetBitPosition() >= 0 {
+		bit, err := p.targetBitFromIP(network.Number)
+		if err != nil {
+			return results, err
+		}
+		child := p.children[bit]
+		if child != nil {
+			childs, err := child.coveringNetworks(network)
+			results = append(results, childs...)
+			return results, err
 		}
 	}
 	return results, nil
