@@ -233,28 +233,36 @@ func (p *prefixTrie) coveredNetworks(network rnet.Network) ([]RangerEntry, error
 }
 
 func (p *prefixTrie) coveringOrCoveredNetworks(network rnet.Network) ([]RangerEntry, error) {
-	res, err := p.coveringNetworks(network)
-	res2, err2 := p.coveredNetworks(network)
-	var ones map[int]bool
-	ones = make(map[int]bool)
-	if err != nil {
-		return res, err
-	}
-	if err2 != nil {
-		return res2, err2
-	}
-	for _, r := range res {
-		one, _ := r.Network().Mask.Size()
-		ones[one] = true
-	}
-	for _, r := range res2 {
-		one, _ := r.Network().Mask.Size()
-		if _, ok := ones[one]; ok == false {
-			res = append(res, r)
+	var results []RangerEntry
+	n_ones, _ := network.IPNet.Mask.Size()
+	p_ones, _ := p.network.IPNet.Mask.Size()
+	if p_ones < n_ones {
+		if p.hasEntry() && p.network.Covers(network) {
+			results = append(results, p.entry)
 		}
 	}
-	return res, nil
+
+	if network.Covers(p.network) {
+		for entry := range p.walkDepth() {
+			results = append(results, entry)
+		}
+	} else if p.targetBitPosition() >= 0 {
+		bit, err := p.targetBitFromIP(network.Number)
+		if err != nil {
+			return results, err
+		}
+		child := p.children[bit]
+		if child != nil {
+			if p_ones < n_ones {
+				childs, err := child.coveringOrCoveredNetworks(network)
+				results = append(results, childs...)
+				return results, err
+			}
+		}
+	}
+	return results, nil
 }
+
 func (p *prefixTrie) coveringNetworks(network rnet.Network) ([]RangerEntry, error) {
 	var results []RangerEntry
 	n_ones, _ := network.IPNet.Mask.Size()

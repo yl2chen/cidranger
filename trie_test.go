@@ -593,6 +593,34 @@ var coveringOrCoveredNetworkTests = []coveredNetworkTest{
 		[]string{"192.168.0.0/16"},
 		"only masks different",
 	},
+	{
+		rnet.IPv4,
+		[]string{"0.0.0.0/0"},
+		"192.168.0.0/15",
+		[]string{"0.0.0.0/0"},
+		"additional test1",
+	},
+	{
+		rnet.IPv4,
+		[]string{"0.0.0.0/0", "127.0.0.1/32"},
+		"127.0.0.0/15",
+		[]string{"0.0.0.0/0", "127.0.0.1/32"},
+		"additional test1",
+	},
+	{
+		rnet.IPv4,
+		[]string{"0.0.0.0/0", "10.0.0.0/16", "10.0.0.1/32"},
+		"10.0.0.0/16",
+		[]string{"0.0.0.0/0", "10.0.0.0/16", "10.0.0.1/32"},
+		"additional test2",
+	},
+	{
+		rnet.IPv4,
+		[]string{"0.0.0.0/0", "10.0.0.0/16", "10.0.0.1/32"},
+		"10.0.0.0/15",
+		[]string{"0.0.0.0/0", "10.0.0.0/16", "10.0.0.1/32"},
+		"additional test3",
+	},
 }
 
 func TestPrefixTrieCoveredNetworks(t *testing.T) {
