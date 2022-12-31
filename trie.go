@@ -233,8 +233,8 @@ func (p *prefixTrie) coveredNetworks(network rnet.Network) ([]RangerEntry, error
 }
 
 func (p *prefixTrie) coveringOrCoveredNetworks(network rnet.Network) ([]RangerEntry, error) {
-	res, err := p.coveredNetworks(network)
-	res2, err2 := p.coveringNetworks(network)
+	res, err := p.coveringNetworks(network)
+	res2, err2 := p.coveredNetworks(network)
 	var ones map[int]bool
 	ones = make(map[int]bool)
 	if err != nil {
