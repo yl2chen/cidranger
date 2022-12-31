@@ -108,6 +108,48 @@ func (b *bruteRanger) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) 
 	return results, nil
 }
 
+// CoveringOrCoveredNetworks returns the list of RangerEntry(s) the given ipnet
+// covers or list of RangerEntry(s) covered by the ipnet.
+func (b *bruteRanger) CoveringOrCoveredNetworks(network net.IPNet) ([]RangerEntry, error) {
+	entries, err := b.getEntriesByVersion(network.IP)
+	if err != nil {
+		return nil, err
+	}
+	var results []RangerEntry
+	testNetwork := rnet.NewNetwork(network)
+	for _, entry := range entries {
+		entryNetwork := rnet.NewNetwork(entry.Network())
+		if testNetwork.Covers(entryNetwork) || entryNetwork.Covers(testNetwork) {
+			results = append(results, entry)
+		}
+	}
+	return results, nil
+}
+
+// CoveringNetworks returns the list of RangerEntry(s) covering the given ipnet
+// That is, the networks that are completely subsumed by the
+// specified network.
+func (b *bruteRanger) CoveringNetworks(network net.IPNet) ([]RangerEntry, error) {
+	n_ones, _ := network.Mask.Size()
+	entries, err := b.getEntriesByVersion(network.IP)
+	if err != nil {
+		return nil, err
+	}
+	var results []RangerEntry
+	testNetwork := rnet.NewNetwork(network)
+	for _, entry := range entries {
+		entryNetwork := rnet.NewNetwork(entry.Network())
+		e_ones, _ := entryNetwork.IPNet.Mask.Size()
+		if uint(e_ones) > uint(n_ones) {
+			continue
+		}
+		if entryNetwork.Covers(testNetwork) {
+			results = append(results, entry)
+		}
+	}
+	return results, nil
+}
+
 // Len returns number of networks in ranger.
 func (b *bruteRanger) Len() int {
 	return len(b.ipV4Entries) + len(b.ipV6Entries)
