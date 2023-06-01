@@ -42,12 +42,13 @@ type prefixTrie struct {
 
 	network rnet.Network
 	entry   RangerEntry
+	headers []HTTPHeader
 
 	size int // This is only maintained in the root trie.
 }
 
 // newPrefixTree creates a new prefixTrie.
-func newPrefixTree(version rnet.IPVersion) Ranger {
+func newPrefixTree(version rnet.IPVersion, defaultHeaders ...HTTPHeader) Ranger {
 	_, rootNet, _ := net.ParseCIDR("0.0.0.0/0")
 	if version == rnet.IPv6 {
 		_, rootNet, _ = net.ParseCIDR("0::0/0")
@@ -57,30 +58,32 @@ func newPrefixTree(version rnet.IPVersion) Ranger {
 		numBitsSkipped: 0,
 		numBitsHandled: 1,
 		network:        rnet.NewNetwork(*rootNet),
+		headers:        defaultHeaders,
 	}
 }
 
-func newPathprefixTrie(network rnet.Network, numBitsSkipped uint) *prefixTrie {
+func newPathprefixTrie(network rnet.Network, numBitsSkipped uint, headers ...HTTPHeader) *prefixTrie {
 	path := &prefixTrie{
 		children:       make([]*prefixTrie, 2, 2),
 		numBitsSkipped: numBitsSkipped,
 		numBitsHandled: 1,
 		network:        network.Masked(int(numBitsSkipped)),
+		headers:        headers,
 	}
 	return path
 }
 
-func newEntryTrie(network rnet.Network, entry RangerEntry) *prefixTrie {
+func newEntryTrie(network rnet.Network, entry RangerEntry, headers []HTTPHeader) *prefixTrie {
 	ones, _ := network.IPNet.Mask.Size()
-	leaf := newPathprefixTrie(network, uint(ones))
+	leaf := newPathprefixTrie(network, uint(ones), headers...)
 	leaf.entry = entry
 	return leaf
 }
 
 // Insert inserts a RangerEntry into prefix trie.
-func (p *prefixTrie) Insert(entry RangerEntry) error {
+func (p *prefixTrie) Insert(entry RangerEntry, headers ...HTTPHeader) error {
 	network := entry.Network()
-	sizeIncreased, err := p.insert(rnet.NewNetwork(network), entry)
+	sizeIncreased, err := p.insert(rnet.NewNetwork(network), entry, headers)
 	if sizeIncreased {
 		p.size++
 	}
@@ -114,6 +117,18 @@ func (p *prefixTrie) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
 		return nil, ErrInvalidNetworkNumberInput
 	}
 	return p.containingNetworks(nn)
+}
+
+// IterByIncomingNetworks iterates over all networks that the transmitted IP is included in.
+func (p *prefixTrie) IterByIncomingNetworks(ip net.IP, f func(network net.IPNet, headers []HTTPHeader) error) error {
+	if err := f(p.network.IPNet, p.headers); err != nil {
+		return err
+	}
+	nn := rnet.NewNetworkNumber(ip)
+	if nn == nil {
+		return ErrInvalidNetworkNumberInput
+	}
+	return p.iterByIncomingNetworks(nn, f)
 }
 
 // CoveredNetworks returns the list of RangerEntry(s) the given ipnet
@@ -198,6 +213,34 @@ func (p *prefixTrie) containingNetworks(number rnet.NetworkNumber) ([]RangerEntr
 	return results, nil
 }
 
+func (p *prefixTrie) iterByIncomingNetworks(number rnet.NetworkNumber,
+	f func(network net.IPNet, headers []HTTPHeader) error) error {
+	if !p.network.Contains(number) {
+		return nil
+	}
+
+	if p.hasEntry() {
+		if err := f(p.network.IPNet, p.headers); err != nil {
+			return err
+		}
+	}
+	if p.targetBitPosition() < 0 {
+		return nil
+	}
+	bit, err := p.targetBitFromIP(number)
+	if err != nil {
+		return err
+	}
+	child := p.children[bit]
+	if child != nil {
+		err = child.iterByIncomingNetworks(number, f)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (p *prefixTrie) coveredNetworks(network rnet.Network) ([]RangerEntry, error) {
 	var results []RangerEntry
 	if network.Covers(p.network) {
@@ -217,7 +260,7 @@ func (p *prefixTrie) coveredNetworks(network rnet.Network) ([]RangerEntry, error
 	return results, nil
 }
 
-func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) (bool, error) {
+func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry, headers []HTTPHeader) (bool, error) {
 	if p.network.Equal(network) {
 		sizeIncreased := p.entry == nil
 		p.entry = entry
@@ -232,7 +275,7 @@ func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) (bool, erro
 
 	// No existing child, insert new leaf trie.
 	if existingChild == nil {
-		p.appendTrie(bit, newEntryTrie(network, entry))
+		p.appendTrie(bit, newEntryTrie(network, entry, headers))
 		return true, nil
 	}
 
@@ -241,7 +284,7 @@ func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) (bool, erro
 	lcb, err := network.LeastCommonBitPosition(existingChild.network)
 	divergingBitPos := int(lcb) - 1
 	if divergingBitPos > existingChild.targetBitPosition() {
-		pathPrefix := newPathprefixTrie(network, p.totalNumberOfBits()-lcb)
+		pathPrefix := newPathprefixTrie(network, p.totalNumberOfBits()-lcb, headers...)
 		err := p.insertPrefix(bit, pathPrefix, existingChild)
 		if err != nil {
 			return false, err
@@ -249,7 +292,7 @@ func (p *prefixTrie) insert(network rnet.Network, entry RangerEntry) (bool, erro
 		// Update new child
 		existingChild = pathPrefix
 	}
-	return existingChild.insert(network, entry)
+	return existingChild.insert(network, entry, headers)
 }
 
 func (p *prefixTrie) appendTrie(bit uint32, prefix *prefixTrie) {

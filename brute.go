@@ -30,7 +30,7 @@ func newBruteRanger() Ranger {
 }
 
 // Insert inserts a RangerEntry into ranger.
-func (b *bruteRanger) Insert(entry RangerEntry) error {
+func (b *bruteRanger) Insert(entry RangerEntry, headers ...HTTPHeader) error {
 	network := entry.Network()
 	key := network.String()
 	if _, found := b.ipV4Entries[key]; !found {
@@ -87,6 +87,12 @@ func (b *bruteRanger) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
 		}
 	}
 	return results, nil
+}
+
+func (b *bruteRanger) IterByIncomingNetworks(ip net.IP, fn func(network net.IPNet, headers []HTTPHeader) error) error {
+	// does not need to be implemented
+	// this Ranger is used for testing only
+	panic("implement me")
 }
 
 // CoveredNetworks returns the list of RangerEntry(s) the given ipnet

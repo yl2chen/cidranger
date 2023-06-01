@@ -4,38 +4,37 @@ inclusion tests against it.
 
 To create a new instance of the path-compressed trie:
 
-			ranger := NewPCTrieRanger()
+	ranger := NewPCTrieRanger()
 
 To insert or remove an entry (any object that satisfies the RangerEntry
 interface):
 
-			_, network, _ := net.ParseCIDR("192.168.0.0/24")
-			ranger.Insert(NewBasicRangerEntry(*network))
-			ranger.Remove(network)
+	_, network, _ := net.ParseCIDR("192.168.0.0/24")
+	ranger.Insert(NewBasicRangerEntry(*network))
+	ranger.Remove(network)
 
 If you desire for any value to be attached to the entry, simply
 create custom struct that satisfies the RangerEntry interface:
 
-			type RangerEntry interface {
-				Network() net.IPNet
-			}
+	type RangerEntry interface {
+		Network() net.IPNet
+	}
 
 To test whether an IP is contained in the constructed networks ranger:
 
-			// returns bool, error
-			containsBool, err := ranger.Contains(net.ParseIP("192.168.0.1"))
+	// returns bool, error
+	containsBool, err := ranger.Contains(net.ParseIP("192.168.0.1"))
 
 To get a list of CIDR blocks in constructed ranger that contains IP:
 
-			// returns []RangerEntry, error
-			entries, err := ranger.ContainingNetworks(net.ParseIP("192.168.0.1"))
+	// returns []RangerEntry, error
+	entries, err := ranger.ContainingNetworks(net.ParseIP("192.168.0.1"))
 
 To get a list of all IPv4/IPv6 rangers respectively:
 
-			// returns []RangerEntry, error
-			entries, err := ranger.CoveredNetworks(*AllIPv4)
-			entries, err := ranger.CoveredNetworks(*AllIPv6)
-
+	// returns []RangerEntry, error
+	entries, err := ranger.CoveredNetworks(*AllIPv4)
+	entries, err := ranger.CoveredNetworks(*AllIPv6)
 */
 package cidranger
 
@@ -84,16 +83,22 @@ func NewBasicRangerEntry(ipNet net.IPNet) RangerEntry {
 
 // Ranger is an interface for cidr block containment lookups.
 type Ranger interface {
-	Insert(entry RangerEntry) error
+	Insert(entry RangerEntry, headers ...HTTPHeader) error
 	Remove(network net.IPNet) (RangerEntry, error)
 	Contains(ip net.IP) (bool, error)
 	ContainingNetworks(ip net.IP) ([]RangerEntry, error)
 	CoveredNetworks(network net.IPNet) ([]RangerEntry, error)
 	Len() int
+	IterByIncomingNetworks(ip net.IP, fn func(network net.IPNet, headers []HTTPHeader) error) error
+}
+
+type HTTPHeader struct {
+	Name  string
+	Value string
 }
 
 // NewPCTrieRanger returns a versionedRanger that supports both IPv4 and IPv6
 // using the path compressed trie implemention.
-func NewPCTrieRanger() Ranger {
-	return newVersionedRanger(newPrefixTree)
+func NewPCTrieRanger(defaultHeaders ...HTTPHeader) Ranger {
+	return newVersionedRanger(newPrefixTree, defaultHeaders...)
 }

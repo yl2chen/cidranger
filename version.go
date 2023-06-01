@@ -6,27 +6,27 @@ import (
 	rnet "github.com/yl2chen/cidranger/net"
 )
 
-type rangerFactory func(rnet.IPVersion) Ranger
+type rangerFactory func(v rnet.IPVersion, headers ...HTTPHeader) Ranger
 
 type versionedRanger struct {
 	ipV4Ranger Ranger
 	ipV6Ranger Ranger
 }
 
-func newVersionedRanger(factory rangerFactory) Ranger {
+func newVersionedRanger(factory rangerFactory, defaultHeaders ...HTTPHeader) Ranger {
 	return &versionedRanger{
-		ipV4Ranger: factory(rnet.IPv4),
-		ipV6Ranger: factory(rnet.IPv6),
+		ipV4Ranger: factory(rnet.IPv4, defaultHeaders...),
+		ipV6Ranger: factory(rnet.IPv6, defaultHeaders...),
 	}
 }
 
-func (v *versionedRanger) Insert(entry RangerEntry) error {
+func (v *versionedRanger) Insert(entry RangerEntry, headers ...HTTPHeader) error {
 	network := entry.Network()
 	ranger, err := v.getRangerForIP(network.IP)
 	if err != nil {
 		return err
 	}
-	return ranger.Insert(entry)
+	return ranger.Insert(entry, headers...)
 }
 
 func (v *versionedRanger) Remove(network net.IPNet) (RangerEntry, error) {
@@ -51,6 +51,15 @@ func (v *versionedRanger) ContainingNetworks(ip net.IP) ([]RangerEntry, error) {
 		return nil, err
 	}
 	return ranger.ContainingNetworks(ip)
+}
+
+func (v *versionedRanger) IterByIncomingNetworks(ip net.IP, fn func(network net.IPNet, headers []HTTPHeader) error) error {
+	ranger, err := v.getRangerForIP(ip)
+	if err != nil {
+		return err
+	}
+
+	return ranger.IterByIncomingNetworks(ip, fn)
 }
 
 func (v *versionedRanger) CoveredNetworks(network net.IPNet) ([]RangerEntry, error) {

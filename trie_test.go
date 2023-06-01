@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"math/rand"
 	"net"
+	"reflect"
 	"runtime"
 	"testing"
 	"time"
@@ -253,13 +254,31 @@ func TestToReplicateIssue(t *testing.T) {
 		inserts  []string
 		ip       net.IP
 		networks []string
+		headers  [][]HTTPHeader
 		name     string
 	}{
 		{
 			rnet.IPv4,
-			[]string{"192.168.0.1/32"},
+			[]string{
+				"192.168.0.0/16",
+				"172.16.0.0/16",
+				"192.168.0.0/24",
+				"192.168.0.1/32",
+			},
 			net.ParseIP("192.168.0.1"),
-			[]string{"192.168.0.1/32"},
+			[]string{
+				"192.168.0.0/16",
+				"192.168.0.0/24",
+				"192.168.0.1/32",
+			},
+			[][]HTTPHeader{
+				{
+					{Name: "Host", Value: "example.com"},
+				},
+				{
+					{Name: "Host", Value: "yandex.ru"},
+				},
+			},
 			"basic containing network for /32 mask",
 		},
 		{
@@ -267,15 +286,25 @@ func TestToReplicateIssue(t *testing.T) {
 			[]string{"a::1/128"},
 			net.ParseIP("a::1"),
 			[]string{"a::1/128"},
+			[][]HTTPHeader{
+				{
+					{Name: "Host", Value: "example.com"},
+				},
+			},
 			"basic containing network for /128 mask",
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			trie := newPrefixTree(tc.version)
-			for _, insert := range tc.inserts {
+			for i, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
-				err := trie.Insert(NewBasicRangerEntry(*network))
+				var err error
+				if len(tc.headers) > i {
+					err = trie.Insert(NewBasicRangerEntry(*network), tc.headers[i]...)
+				} else {
+					err = trie.Insert(NewBasicRangerEntry(*network))
+				}
 				assert.NoError(t, err)
 			}
 			expectedEntries := []RangerEntry{}
@@ -289,6 +318,135 @@ func TestToReplicateIssue(t *testing.T) {
 			networks, err := trie.ContainingNetworks(tc.ip)
 			assert.NoError(t, err)
 			assert.Equal(t, expectedEntries, networks)
+		})
+	}
+}
+
+func TestIterByIncomingNetworks(t *testing.T) {
+	type NetHeaders struct {
+		ipNet   string
+		headers []HTTPHeader
+	}
+
+	cases := []struct {
+		version rnet.IPVersion
+		inserts []NetHeaders
+		ip      net.IP
+		want    []HTTPHeader
+		name    string
+	}{
+		{
+			rnet.IPv4,
+			[]NetHeaders{
+				{
+					"172.16.0.0/16",
+					[]HTTPHeader{
+						{Name: "Host", Value: "172.16.0.0/16"},
+					},
+				},
+				{
+					"192.168.0.0/16",
+					[]HTTPHeader{
+						{Name: "Host", Value: "192.168.0.0/16"},
+					},
+				},
+				{
+					"192.0.0.0/8",
+					[]HTTPHeader{
+						{Name: "Host", Value: "192.0.0.0/8"},
+					},
+				},
+				{
+					"172.16.99.0/24",
+					[]HTTPHeader{
+						{Name: "Host", Value: "172.16.99.0/24"},
+					},
+				},
+				{
+					"192.168.99.0/24",
+					[]HTTPHeader{
+						{Name: "Host", Value: "192.168.99.0/24"},
+					},
+				},
+				{
+					"192.168.99.1/32",
+					[]HTTPHeader{
+						{Name: "Host", Value: "192.168.99.1/32"},
+					},
+				},
+			},
+			net.ParseIP("192.168.99.1"),
+			[]HTTPHeader{
+				{Name: "Host", Value: "192.0.0.0/8"},
+				{Name: "Host", Value: "192.168.0.0/16"},
+				{Name: "Host", Value: "192.168.99.0/24"},
+				{Name: "Host", Value: "192.168.99.1/32"},
+			},
+			"iterOver4IPv4Networks",
+		},
+		{
+			rnet.IPv6,
+			[]NetHeaders{
+				{
+					"2001:db8:1234::/48",
+					[]HTTPHeader{
+						{Name: "Host", Value: "2001:db8:1234::/48"},
+					},
+				},
+				{
+					"2001:db8:1234:5678::/64",
+					[]HTTPHeader{
+						{Name: "Host", Value: "2001:db8:1234:5678::/64"},
+					},
+				},
+				{
+					"2001:db8:1234:5678:abcd::/80",
+					[]HTTPHeader{
+						{Name: "Host", Value: "2001:db8:1234:5678:abcd::/80"},
+					},
+				},
+				{
+					"2001:db8:1234:5178:abcd::/80",
+					[]HTTPHeader{
+						{Name: "Host", Value: "2001:db8:1234:5178:abcd::/80"},
+					},
+				},
+				{
+					"2001:db8:1274:5678::/64",
+					[]HTTPHeader{
+						{Name: "Host", Value: "2001:db8:1274:5678::/64"},
+					},
+				},
+			},
+			net.ParseIP("2001:db8:1234:5678:abcd::1"),
+			[]HTTPHeader{
+				{Name: "Host", Value: "2001:db8:1234::/48"},
+				{Name: "Host", Value: "2001:db8:1234:5678::/64"},
+				{Name: "Host", Value: "2001:db8:1234:5678:abcd::/80"},
+			},
+			"iterOver3IPv6Networks",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			trie := newPrefixTree(tc.version)
+			for _, insert := range tc.inserts {
+				_, network, _ := net.ParseCIDR(insert.ipNet)
+				err := trie.Insert(NewBasicRangerEntry(*network), insert.headers...)
+				assert.NoError(t, err)
+			}
+
+			got := make([]HTTPHeader, 0)
+			f := func(network net.IPNet, headers []HTTPHeader) error {
+				got = append(got, headers...)
+				return nil
+			}
+
+			err := trie.IterByIncomingNetworks(tc.ip, f)
+			assert.NoError(t, err)
+			if !reflect.DeepEqual(tc.want, got) {
+				t.Errorf("want: \n%v, got: \n%v", tc.want, got)
+			}
 		})
 	}
 }
