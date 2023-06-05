@@ -2,6 +2,7 @@ package cidranger
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math/rand"
 	"net"
 	"reflect"
@@ -73,7 +74,7 @@ func TestPrefixTrieInsert(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			trie := newPrefixTree(tc.version).(*prefixTrie)
+			trie := newPrefixTree[httpHeader](tc.version).(*prefixTrie[httpHeader])
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
 				err := trie.Insert(NewBasicRangerEntry(*network))
@@ -104,7 +105,7 @@ func TestPrefixTrieInsert(t *testing.T) {
 
 func TestPrefixTrieString(t *testing.T) {
 	inserts := []string{"192.168.0.1/24", "192.168.1.1/24", "192.168.1.1/30"}
-	trie := newPrefixTree(rnet.IPv4).(*prefixTrie)
+	trie := newPrefixTree[httpHeader](rnet.IPv4).(*prefixTrie[httpHeader])
 	for _, insert := range inserts {
 		_, network, _ := net.ParseCIDR(insert)
 		trie.Insert(NewBasicRangerEntry(*network))
@@ -205,7 +206,7 @@ func TestPrefixTrieRemove(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			trie := newPrefixTree(tc.version).(*prefixTrie)
+			trie := newPrefixTree[httpHeader](tc.version).(*prefixTrie[httpHeader])
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
 				err := trie.Insert(NewBasicRangerEntry(*network))
@@ -254,7 +255,7 @@ func TestToReplicateIssue(t *testing.T) {
 		inserts  []string
 		ip       net.IP
 		networks []string
-		headers  [][]HTTPHeader
+		headers  [][]httpHeader
 		name     string
 	}{
 		{
@@ -271,7 +272,7 @@ func TestToReplicateIssue(t *testing.T) {
 				"192.168.0.0/24",
 				"192.168.0.1/32",
 			},
-			[][]HTTPHeader{
+			[][]httpHeader{
 				{
 					{Name: "Host", Value: "example.com"},
 				},
@@ -286,7 +287,7 @@ func TestToReplicateIssue(t *testing.T) {
 			[]string{"a::1/128"},
 			net.ParseIP("a::1"),
 			[]string{"a::1/128"},
-			[][]HTTPHeader{
+			[][]httpHeader{
 				{
 					{Name: "Host", Value: "example.com"},
 				},
@@ -296,12 +297,12 @@ func TestToReplicateIssue(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			trie := newPrefixTree(tc.version)
+			trie := newPrefixTree[[]httpHeader](tc.version)
 			for i, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
 				var err error
 				if len(tc.headers) > i {
-					err = trie.Insert(NewBasicRangerEntry(*network), tc.headers[i]...)
+					err = trie.Insert(NewBasicRangerEntry(*network), tc.headers[i])
 				} else {
 					err = trie.Insert(NewBasicRangerEntry(*network))
 				}
@@ -325,14 +326,14 @@ func TestToReplicateIssue(t *testing.T) {
 func TestIterByIncomingNetworks(t *testing.T) {
 	type NetHeaders struct {
 		ipNet   string
-		headers []HTTPHeader
+		headers []httpHeader
 	}
 
 	cases := []struct {
 		version rnet.IPVersion
 		inserts []NetHeaders
 		ip      net.IP
-		want    []HTTPHeader
+		want    []httpHeader
 		name    string
 	}{
 		{
@@ -340,43 +341,43 @@ func TestIterByIncomingNetworks(t *testing.T) {
 			[]NetHeaders{
 				{
 					"172.16.0.0/16",
-					[]HTTPHeader{
+					[]httpHeader{
 						{Name: "Host", Value: "172.16.0.0/16"},
 					},
 				},
 				{
 					"192.168.0.0/16",
-					[]HTTPHeader{
+					[]httpHeader{
 						{Name: "Host", Value: "192.168.0.0/16"},
 					},
 				},
 				{
 					"192.0.0.0/8",
-					[]HTTPHeader{
+					[]httpHeader{
 						{Name: "Host", Value: "192.0.0.0/8"},
 					},
 				},
 				{
 					"172.16.99.0/24",
-					[]HTTPHeader{
+					[]httpHeader{
 						{Name: "Host", Value: "172.16.99.0/24"},
 					},
 				},
 				{
 					"192.168.99.0/24",
-					[]HTTPHeader{
+					[]httpHeader{
 						{Name: "Host", Value: "192.168.99.0/24"},
 					},
 				},
 				{
 					"192.168.99.1/32",
-					[]HTTPHeader{
+					[]httpHeader{
 						{Name: "Host", Value: "192.168.99.1/32"},
 					},
 				},
 			},
 			net.ParseIP("192.168.99.1"),
-			[]HTTPHeader{
+			[]httpHeader{
 				{Name: "Host", Value: "192.0.0.0/8"},
 				{Name: "Host", Value: "192.168.0.0/16"},
 				{Name: "Host", Value: "192.168.99.0/24"},
@@ -389,37 +390,37 @@ func TestIterByIncomingNetworks(t *testing.T) {
 			[]NetHeaders{
 				{
 					"2001:db8:1234::/48",
-					[]HTTPHeader{
+					[]httpHeader{
 						{Name: "Host", Value: "2001:db8:1234::/48"},
 					},
 				},
 				{
 					"2001:db8:1234:5678::/64",
-					[]HTTPHeader{
+					[]httpHeader{
 						{Name: "Host", Value: "2001:db8:1234:5678::/64"},
 					},
 				},
 				{
 					"2001:db8:1234:5678:abcd::/80",
-					[]HTTPHeader{
+					[]httpHeader{
 						{Name: "Host", Value: "2001:db8:1234:5678:abcd::/80"},
 					},
 				},
 				{
 					"2001:db8:1234:5178:abcd::/80",
-					[]HTTPHeader{
+					[]httpHeader{
 						{Name: "Host", Value: "2001:db8:1234:5178:abcd::/80"},
 					},
 				},
 				{
 					"2001:db8:1274:5678::/64",
-					[]HTTPHeader{
+					[]httpHeader{
 						{Name: "Host", Value: "2001:db8:1274:5678::/64"},
 					},
 				},
 			},
 			net.ParseIP("2001:db8:1234:5678:abcd::1"),
-			[]HTTPHeader{
+			[]httpHeader{
 				{Name: "Host", Value: "2001:db8:1234::/48"},
 				{Name: "Host", Value: "2001:db8:1234:5678::/64"},
 				{Name: "Host", Value: "2001:db8:1234:5678:abcd::/80"},
@@ -429,31 +430,44 @@ func TestIterByIncomingNetworks(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			trie := newPrefixTree(tc.version)
+			trie := newPrefixTree[httpHeader](tc.version)
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert.ipNet)
 				err := trie.Insert(NewBasicRangerEntry(*network), insert.headers...)
 				assert.NoError(t, err)
 			}
 
-			got := make([]HTTPHeader, 0)
-			f := func(network net.IPNet, headers []HTTPHeader) error {
-				got = append(got, headers...)
-				return nil
-			}
+			f, got := collectHeaders[httpHeader]()
 
 			err := trie.IterByIncomingNetworks(tc.ip, f)
 			assert.NoError(t, err)
-			if !reflect.DeepEqual(tc.want, got) {
-				t.Errorf("want: \n%v, got: \n%v", tc.want, got)
+			if !reflect.DeepEqual(tc.want, *got) {
+				t.Errorf("want: \n%v, \ngot: \n%v", tc.want, *got)
 			}
 		})
 	}
 }
 
+func collectHeaders[V any]() (func(network net.IPNet, value V) error, *[]V) {
+	got := make([]V, 0)
+	return func(network net.IPNet, value V) error {
+		if reflect.ValueOf(value).IsZero() {
+			fmt.Println(network.String())
+			return nil
+		}
+		got = append(got, value)
+		return nil
+	}, &got
+}
+
 type expectedIPRange struct {
 	start net.IP
 	end   net.IP
+}
+
+type httpHeader struct {
+	Name  string
+	Value string
 }
 
 func TestPrefixTrieContains(t *testing.T) {
@@ -484,7 +498,7 @@ func TestPrefixTrieContains(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			trie := newPrefixTree(tc.version)
+			trie := newPrefixTree[httpHeader](tc.version)
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
 				err := trie.Insert(NewBasicRangerEntry(*network))
@@ -537,7 +551,7 @@ func TestPrefixTrieContainingNetworks(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			trie := newPrefixTree(tc.version)
+			trie := newPrefixTree[any](tc.version)
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
 				err := trie.Insert(NewBasicRangerEntry(*network))
@@ -630,7 +644,7 @@ var coveredNetworkTests = []coveredNetworkTest{
 func TestPrefixTrieCoveredNetworks(t *testing.T) {
 	for _, tc := range coveredNetworkTests {
 		t.Run(tc.name, func(t *testing.T) {
-			trie := newPrefixTree(tc.version)
+			trie := newPrefixTree[any](tc.version)
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
 				err := trie.Insert(NewBasicRangerEntry(*network))
@@ -661,7 +675,7 @@ func TestTrieMemUsage(t *testing.T) {
 	// by threshold, picking 1% as sane number for detecting memory leak.
 	thresh := 1.01
 
-	trie := newPrefixTree(rnet.IPv4)
+	trie := newPrefixTree[any](rnet.IPv4)
 
 	var baseLineHeap, totalHeapAllocOverRuns uint64
 	for i := 0; i < runs; i++ {

@@ -82,23 +82,22 @@ func NewBasicRangerEntry(ipNet net.IPNet) RangerEntry {
 }
 
 // Ranger is an interface for cidr block containment lookups.
-type Ranger interface {
-	Insert(entry RangerEntry, headers ...HTTPHeader) error
+type Ranger[V any] interface {
+	Insert(entry RangerEntry, value ...V) error
 	Remove(network net.IPNet) (RangerEntry, error)
 	Contains(ip net.IP) (bool, error)
 	ContainingNetworks(ip net.IP) ([]RangerEntry, error)
 	CoveredNetworks(network net.IPNet) ([]RangerEntry, error)
 	Len() int
-	IterByIncomingNetworks(ip net.IP, fn func(network net.IPNet, headers []HTTPHeader) error) error
-}
-
-type HTTPHeader struct {
-	Name  string
-	Value string
+	IterByIncomingNetworks(ip net.IP, fn func(network net.IPNet, value V) error) error
 }
 
 // NewPCTrieRanger returns a versionedRanger that supports both IPv4 and IPv6
 // using the path compressed trie implemention.
-func NewPCTrieRanger(defaultHeaders ...HTTPHeader) Ranger {
-	return newVersionedRanger(newPrefixTree, defaultHeaders...)
+func NewPCTrieRanger[V any](defaultValue ...V) Ranger[V] {
+	var val V
+	if len(defaultValue) > 0 {
+		val = defaultValue[0]
+	}
+	return newVersionedRanger[V](newPrefixTree[V], val)
 }

@@ -9,7 +9,7 @@ import (
 )
 
 func TestInsert(t *testing.T) {
-	ranger := newBruteRanger().(*bruteRanger)
+	ranger := newBruteRanger[httpHeaders]().(*bruteRanger[httpHeaders])
 	_, networkIPv4, _ := net.ParseCIDR("0.0.1.0/24")
 	_, networkIPv6, _ := net.ParseCIDR("8000::/96")
 	entryIPv4 := NewBasicRangerEntry(*networkIPv4)
@@ -25,7 +25,7 @@ func TestInsert(t *testing.T) {
 }
 
 func TestInsertError(t *testing.T) {
-	bRanger := newBruteRanger().(*bruteRanger)
+	bRanger := newBruteRanger[httpHeaders]().(*bruteRanger[httpHeaders])
 	_, networkIPv4, _ := net.ParseCIDR("0.0.1.0/24")
 	networkIPv4.IP = append(networkIPv4.IP, byte(4))
 	err := bRanger.Insert(NewBasicRangerEntry(*networkIPv4))
@@ -33,7 +33,7 @@ func TestInsertError(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
-	ranger := newBruteRanger().(*bruteRanger)
+	ranger := newBruteRanger[httpHeaders]().(*bruteRanger[httpHeaders])
 	_, networkIPv4, _ := net.ParseCIDR("0.0.1.0/24")
 	_, networkIPv6, _ := net.ParseCIDR("8000::/96")
 	_, notInserted, _ := net.ParseCIDR("8000::/96")
@@ -60,7 +60,7 @@ func TestRemove(t *testing.T) {
 }
 
 func TestRemoveError(t *testing.T) {
-	r := newBruteRanger().(*bruteRanger)
+	r := newBruteRanger[httpHeaders]().(*bruteRanger[httpHeaders])
 	_, invalidNetwork, _ := net.ParseCIDR("0.0.1.0/24")
 	invalidNetwork.IP = append(invalidNetwork.IP, byte(4))
 
@@ -69,7 +69,7 @@ func TestRemoveError(t *testing.T) {
 }
 
 func TestContains(t *testing.T) {
-	r := newBruteRanger().(*bruteRanger)
+	r := newBruteRanger[httpHeaders]().(*bruteRanger[httpHeaders])
 	_, network, _ := net.ParseCIDR("0.0.1.0/24")
 	_, network1, _ := net.ParseCIDR("8000::/112")
 	r.Insert(NewBasicRangerEntry(*network))
@@ -101,8 +101,13 @@ func TestContains(t *testing.T) {
 	}
 }
 
+type httpHeaders struct {
+	key   string
+	value string
+}
+
 func TestContainingNetworks(t *testing.T) {
-	r := newBruteRanger().(*bruteRanger)
+	r := newBruteRanger[httpHeaders]().(*bruteRanger[httpHeaders])
 	_, network1, _ := net.ParseCIDR("0.0.1.0/24")
 	_, network2, _ := net.ParseCIDR("0.0.1.0/25")
 	_, network3, _ := net.ParseCIDR("8000::/112")
@@ -149,7 +154,7 @@ func TestContainingNetworks(t *testing.T) {
 func TestCoveredNetworks(t *testing.T) {
 	for _, tc := range coveredNetworkTests {
 		t.Run(tc.name, func(t *testing.T) {
-			ranger := newBruteRanger()
+			ranger := newBruteRanger[any]()
 			for _, insert := range tc.inserts {
 				_, network, _ := net.ParseCIDR(insert)
 				err := ranger.Insert(NewBasicRangerEntry(*network))
